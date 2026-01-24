@@ -1,0 +1,12 @@
+[
+  {
+    "MaBanner": 1,
+    "AnhBanner": "/images/Banner/banner-1764006269257.png",
+    "DuongDan": "/menu"
+  },
+  {
+    "MaBanner": 2,
+    "AnhBanner": "/images/Banner/banner2.jpg",
+    "DuongDan": "/combos"
+  }
+]
