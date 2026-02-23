@@ -8,7 +8,7 @@ class ChatbotController {
 
   /**
    * POST /api/chatbot/message
-   * Gửi tin nhắn đến chatbot
+   * Gửi tin nhắn đến chatbot (PUBLIC)
    */
   async sendMessage(req, res) {
     try {
@@ -22,21 +22,18 @@ class ChatbotController {
         });
       }
 
-      if (!userId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cần cung cấp userId'
-        });
-      }
+      // Nếu không có userId, sinh một cái tạm thời
+      const finalUserId = userId || `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      console.log(`[ChatbotController] Processing message from user ${userId}: "${message}"`);
+      console.log(`[ChatbotController] Message from ${finalUserId}: "${message}"`);
 
       // Xử lý tin nhắn
-      const response = await chatbotService.processMessage(message, userId);
+      const response = await chatbotService.processMessage(message, finalUserId);
 
       res.json({
         success: true,
         message: response,
+        userId: finalUserId,
         timestamp: new Date()
       });
     } catch (error) {
@@ -50,35 +47,30 @@ class ChatbotController {
 
   /**
    * GET /api/chatbot/session/:userId
-   * Lấy thông tin session (giỏ hàng) hiện tại
+   * Lấy thông tin session (giỏ hàng) hiện tại (PUBLIC)
    */
   async getSession(req, res) {
     try {
       const { userId } = req.params;
-      const session = chatbotService.getSession(userId);
 
-      if (!session) {
-        return res.json({
-          success: true,
-          session: {
-            orderCart: [],
-            totalPrice: 0
-          }
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cần cung cấp userId'
         });
       }
 
+      const session = chatbotService.getSession(userId);
+
       res.json({
         success: true,
-        session: {
-          orderCart: session.orderCart,
-          totalPrice: session.totalPrice
-        }
+        session: session || { orderCart: [], totalPrice: 0 }
       });
     } catch (error) {
       console.error('[ChatbotController] Error:', error);
       res.status(500).json({
         success: false,
-        message: 'Có lỗi xảy ra.'
+        message: 'Có lỗi xảy ra'
       });
     }
   }
@@ -107,42 +99,43 @@ class ChatbotController {
 
   /**
    * POST /api/chatbot/checkout
-   * Thanh toán đơn hàng từ chatbot
+   * Thanh toán đơn hàng từ chatbot (PUBLIC)
    */
   async checkout(req, res) {
     try {
       const { userId, paymentMethod, deliveryAddress } = req.body;
+
+      if (!userId || !paymentMethod) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cần cung cấp userId và paymentMethod'
+        });
+      }
+
       const session = chatbotService.getSession(userId);
 
-      if (!session || !session.orderCart.length) {
+      if (!session || session.orderCart.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Giỏ hàng trống'
+          message: 'Giỏ hàng rỗng'
         });
       }
 
-      if (!paymentMethod || !deliveryAddress) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cần cung cấp phương thức thanh toán và địa chỉ giao'
-        });
-      }
-
-      // TODO: Tạo đơn hàng trong database
-      // Giả lập tạo đơn
-      const orderId = Math.floor(Math.random() * 10000);
+      // Tạo mã đơn hàng
+      const orderId = `ORD_${Date.now()}`;
 
       res.json({
         success: true,
         message: `✅ Đơn hàng #${orderId} đã được tạo thành công!`,
         orderId,
-        total: session.totalPrice
+        total: session.totalPrice,
+        paymentMethod
       });
 
       // Xóa session sau khi thanh toán
       chatbotService.clearSession(userId);
     } catch (error) {
-      console.error('[ChatbotController] Error:', error);
+      console.error('[ChatbotController] Checkout Error:', error);
       res.status(500).json({
         success: false,
         message: 'Có lỗi xảy ra trong quá trình thanh toán.'

@@ -8,7 +8,7 @@ class ChatbotService {
   }
 
   /**
-   * Xử lý tin nhắn từ khách hàng
+   * Xử lý tin nhắn từ khách hàng (PUBLIC)
    * @param {string} userMessage - Tin nhắn từ khách hàng
    * @param {string} userId - ID người dùng
    * @returns {Promise<string>} - Phản hồi từ chatbot
@@ -34,23 +34,22 @@ class ChatbotService {
       for (const scenario of this.scenarios) {
         for (const pattern of scenario.patterns) {
           if (pattern.test(normalizedMessage)) {
-            console.log(`[Chatbot] Matched scenario: ${scenario.name} with message: "${userMessage}"`);
+            console.log(`[Chatbot] Matched: ${scenario.name}`);
             try {
               const response = await scenario.response(userMessage, session);
               return response;
             } catch (error) {
-              console.error(`[Chatbot] Error in scenario ${scenario.name}:`, error);
-              return '❌ Có lỗi xảy ra khi xử lý yêu cầu của bạn.';
+              console.error(`[Chatbot] Error in ${scenario.name}:`, error);
+              return '❌ Có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại!';
             }
           }
         }
       }
 
       // Nếu không tìm thấy scenario nào
-      console.log(`[Chatbot] No scenario matched for message: "${userMessage}"`);
       return this.getDefaultResponse();
     } catch (error) {
-      console.error('[ChatbotService] Error processing message:', error);
+      console.error('[ChatbotService] Error:', error);
       return '❌ Có lỗi xảy ra. Vui lòng thử lại sau.';
     }
   }
@@ -95,7 +94,7 @@ class ChatbotService {
   }
 
   /**
-   * Debug: Liệt kê tất cả scenarios
+   * Liệt kê tất cả scenarios (dùng cho debug)
    */
   listScenarios() {
     return this.scenarios.map(s => ({
