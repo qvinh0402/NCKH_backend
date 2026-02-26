@@ -17,5 +17,5 @@
 - When an order is created with payment method `Chuyển Khoản`, the service now returns a VNPay sandbox payment URL together with transaction metadata (`paymentTxnRef`, `paymentExpireAt`).
 - Optional request payload fields under `payment` may override VNPay options: `orderInfo`, `bankCode`, `locale`, `orderType`, `returnUrl`, `ipAddress`, `txnRef`, `expireMinutes`.
 - Verify the return URL endpoint handles VNPay response codes before going live.
-  test ne
-  test hihi
+ 
+
