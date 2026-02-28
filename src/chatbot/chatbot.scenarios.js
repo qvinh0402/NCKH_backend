@@ -5,15 +5,26 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 // ============================================
+// HELPERS: XỬ LÝ TIẾNG VIỆT KHÔNG DẤU
+// ============================================
+function removeAccents(str) {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
+// ============================================
 // CACHE & HELPERS
 // ============================================
 const foodCache = { data: null, timestamp: 0, ttl: 5 * 60 * 1000 };
 
 async function getCachedFoods() {
   const now = Date.now();
-  if (foodCache.data && now - foodCache.timestamp < foodCache.ttl) {
-    return foodCache.data;
-  }
+  if (foodCache.data && now - foodCache.timestamp < foodCache.ttl) return foodCache.data;
   try {
     const foods = await prisma.monAn.findMany({
       where: { TrangThai: 'Active' },
@@ -22,13 +33,162 @@ async function getCachedFoods() {
         BienTheMonAn: { include: { Size: true }, where: { TrangThai: 'Active' } }
       }
     });
-    foodCache.data = foods;
+    
+    // ĐIỂM CẦN SỬA: Thêm thuộc tính tenKhongDau ở đây
+    foodCache.data = foods.map(f => ({
+      ...f,
+      tenKhongDau: removeAccents(f.TenMonAn) 
+    }));
+    
     foodCache.timestamp = now;
-    return foods;
+    return foodCache.data;
   } catch (e) {
     return foodCache.data || [];
   }
 }
+
+// CANCEL ORDER
+// ============================================
+const cancelScenario = {
+  name: 'cancel',
+  // patterns bao quát nhiều trường hợp khách gõ
+  patterns: [/hủy/i, /huy/i, /xóa/i, /xoa/i, /3️⃣/i, /^3$/i],
+  response: async (userMessage, session) => {
+    // Kiểm tra xem có đơn hàng để hủy không
+    if (!session.orderCart || session.orderCart.length === 0) {
+      return '❌ Hiện tại bạn chưa có sản phẩm nào trong giỏ hàng để hủy cả! 😊';
+    }
+
+    // Thực hiện xóa dữ liệu trong session
+    session.orderCart = [];
+    session.totalPrice = 0;
+    session.deliveryInfo = null; // Reset luôn thông tin giao hàng nếu có
+    session.awaitingDeliveryInfo = false;
+
+    return '🗑️ **ĐÃ HỦY ĐƠN HÀNG THÀNH CÔNG!**\n\n' +
+           'Giỏ hàng của bạn đã được làm trống. 🧹\n' +
+           'Bạn có muốn xem lại menu để chọn món khác không? 🍕';
+  }
+};
+
+// ============================================
+// HANDLE DELIVERY INFO INPUT
+// ============================================
+const handleDeliveryInput = {
+  name: 'handleDeliveryInput',
+  patterns: [/tên\s*:|sđt\s*:|địa\s*chỉ\s*:/i],
+  response: async (userMessage, session) => {
+    if (!session.awaitingDeliveryInfo) {
+      return null; // Không xử lý nếu không ở trạng thái chờ thông tin giao hàng
+    }
+
+    // Parse thông tin giao hàng
+    const parseResult = await parseDeliveryInfo(userMessage, session);
+    
+    if (!parseResult.success) {
+      return parseResult.message;
+    }
+
+    // Lưu thông tin giao hàng vào session
+    session.deliveryInfo = parseResult.data;
+    session.awaitingDeliveryInfo = false;
+
+    // Xác nhận thông tin
+    let response = '✅ **THÔNG TIN ĐÃ LƯU!**\n\n';
+    response += '📝 **KIỂM TRA THÔNG TIN:**\n';
+    response += `• **Tên:** ${parseResult.data.tenNguoiNhan}\n`;
+    response += `• **SĐT:** ${parseResult.data.soDienThoai}\n`;
+    response += `• **Địa chỉ:** ${parseResult.data.soNhaDuong}, ${parseResult.data.phuongXa}, ${parseResult.data.quanHuyen}, ${parseResult.data.thanhPho}\n`;
+    response += `• **Chi nhánh:** ${parseResult.data.tenCoSo}\n\n`;
+
+    response += '🛒 **ĐƠN HÀNG CỦA BẠN:**\n';
+    session.orderCart.forEach((item, idx) => {
+      response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+    });
+
+    response += `\n💰 **TỔNG TIỀN:** ${session.totalPrice.toLocaleString('vi-VN')} đ\n\n`;
+
+    response += '✅ **TIẾP TỤC:**\n';
+    response += 'Gõ "thanh toán" hoặc "thanh toán ngay" để hoàn tất đơn hàng';
+
+    return response;
+  }
+};
+
+// ============================================
+// ORDER - Đặt hàng với tích hợp Database
+// ============================================
+const orderScenario = {
+  name: 'order',
+  patterns: [/đặt/i, /cho.*tôi/i, /order/i, /muốn.*mua/i],
+  response: async (userMessage, session) => {
+    try {
+      const foods = await getCachedFoods();
+      if (!foods.length) {
+        return '❌ Menu hiện không có sản phẩm. Vui lòng thử lại sau.';
+      }
+
+      // Phân tích yêu cầu: tìm sản phẩm và số lượng
+      let foundItems = [];
+      let totalPrice = 0;
+
+      // Tìm tất cả sản phẩm được nhắc đến trong tin nhắn
+      foods.forEach(food => {
+        if (userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())) {
+          // Lấy số lượng từ tin nhắn (ví dụ: "1 pizza", "2 cái", etc.)
+          const qtyMatch = userMessage.match(new RegExp(`(\\d+)\\s*(?:cái|chiếc|ly|đĩa|phần)?\\s*${food.TenMonAn}`, 'i'));
+          const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+          
+          const price = food.BienTheMonAn[0]?.GiaBan || 0;
+          const subtotal = price * qty;
+
+          foundItems.push({
+            maBienThe: food.BienTheMonAn[0]?.MaBienThe,
+            maMonAn: food.MaMonAn,
+            tenMonAn: food.TenMonAn,
+            soLuong: qty,
+            donGia: price,
+            thanhTien: subtotal
+          });
+
+          totalPrice += subtotal;
+        }
+      });
+
+      // Nếu không tìm thấy sản phẩm nào
+      if (foundItems.length === 0) {
+        return `❓ Tôi không tìm thấy sản phẩm nào trong yêu cầu của bạn.\n\n` +
+               `Các sản phẩm có sẵn:\n` +
+               foods.slice(0, 5).map(f => `• ${f.TenMonAn}`).join('\n') +
+               `\n\nBạn muốn đặt gì? Ví dụ: "Cho tôi 1 pizza hải sản, 2 tiramisu"`;
+      }
+
+      // Lưu vào session
+      session.orderCart = foundItems;
+      session.totalPrice = totalPrice;
+      session.orderedAt = new Date();
+
+      // Tạo danh sách đơn hàng
+      let orderList = '🛒 **ĐƠN HÀNG CỦA BẠN:**\n\n';
+      foundItems.forEach((item, idx) => {
+        orderList += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn}\n`;
+        orderList += `   💵 ${item.thanhTien.toLocaleString('vi-VN')} đ\n`;
+      });
+
+      orderList += `\n**━━━━━━━━━━━━━━━━**\n`;
+      orderList += `**Tổng cộng: ${totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
+      orderList += '✅ **Bước tiếp theo:**\n';
+      orderList += '1️⃣ Thêm món khác\n';
+      orderList += '2️⃣ Thanh toán ngay\n';
+      orderList += '3️⃣ Hủy đơn';
+
+      return orderList;
+    } catch (error) {
+      console.error('[Order] Error:', error);
+      return '❌ Có lỗi khi xử lý đơn hàng. Vui lòng thử lại.';
+    }
+  }
+};
 
 function getStatusEmoji(status) {
   const map = {
@@ -122,80 +282,6 @@ const recommendationScenario = {
   }
 };
 
-// ============================================
-// 4. ORDER - Đặt hàng với tích hợp Database
-// ============================================
-const orderScenario = {
-  name: 'order',
-  patterns: [/đặt/i, /cho.*tôi/i, /order/i, /muốn.*mua/i],
-  response: async (userMessage, session) => {
-    try {
-      const foods = await getCachedFoods();
-      if (!foods.length) {
-        return '❌ Menu hiện không có sản phẩm. Vui lòng thử lại sau.';
-      }
-
-      // Phân tích yêu cầu: tìm sản phẩm và số lượng
-      let foundItems = [];
-      let totalPrice = 0;
-
-      // Tìm tất cả sản phẩm được nhắc đến trong tin nhắn
-      foods.forEach(food => {
-        if (userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())) {
-          // Lấy số lượng từ tin nhắn (ví dụ: "1 pizza", "2 cái", etc.)
-          const qtyMatch = userMessage.match(new RegExp(`(\\d+)\\s*(?:cái|chiếc|ly|đĩa|phần)?\\s*${food.TenMonAn}`, 'i'));
-          const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-          
-          const price = food.BienTheMonAn[0]?.GiaBan || 0;
-          const subtotal = price * qty;
-
-          foundItems.push({
-            maBienThe: food.BienTheMonAn[0]?.MaBienThe,
-            maMonAn: food.MaMonAn,
-            tenMonAn: food.TenMonAn,
-            soLuong: qty,
-            donGia: price,
-            thanhTien: subtotal
-          });
-
-          totalPrice += subtotal;
-        }
-      });
-
-      // Nếu không tìm thấy sản phẩm nào
-      if (foundItems.length === 0) {
-        return `❓ Tôi không tìm thấy sản phẩm nào trong yêu cầu của bạn.\n\n` +
-               `Các sản phẩm có sẵn:\n` +
-               foods.slice(0, 5).map(f => `• ${f.TenMonAn}`).join('\n') +
-               `\n\nBạn muốn đặt gì? Ví dụ: "Cho tôi 1 pizza hải sản, 2 tiramisu"`;
-      }
-
-      // Lưu vào session
-      session.orderCart = foundItems;
-      session.totalPrice = totalPrice;
-      session.orderedAt = new Date();
-
-      // Tạo danh sách đơn hàng
-      let orderList = '🛒 **ĐƠN HÀNG CỦA BẠN:**\n\n';
-      foundItems.forEach((item, idx) => {
-        orderList += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn}\n`;
-        orderList += `   💵 ${item.thanhTien.toLocaleString('vi-VN')} đ\n`;
-      });
-
-      orderList += `\n**━━━━━━━━━━━━━━━━**\n`;
-      orderList += `**Tổng cộng: ${totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
-      orderList += '✅ **Bước tiếp theo:**\n';
-      orderList += '1️⃣ Thêm món khác\n';
-      orderList += '2️⃣ Thanh toán ngay\n';
-      orderList += '3️⃣ Hủy đơn';
-
-      return orderList;
-    } catch (error) {
-      console.error('[Order] Error:', error);
-      return '❌ Có lỗi khi xử lý đơn hàng. Vui lòng thử lại.';
-    }
-  }
-};
 
 // ============================================
 // 5. ADD MORE ITEMS
@@ -204,53 +290,32 @@ const addMoreScenario = {
   name: 'addMore',
   patterns: [/thêm.*món/i, /thêm/i, /nữa/i, /1️⃣/i, /^1$/i],
   response: async (userMessage, session) => {
-    // Kiểm tra nếu người dùng chưa có đơn hàng
+    // 1. Kiểm tra giỏ hàng trống
     if (!session.orderCart || session.orderCart.length === 0) {
       return '❌ Bạn chưa có đơn hàng nào.\n\n🍕 Hãy bắt đầu bằng cách nói: "Cho tôi 1 pizza"';
     }
 
     try {
       const foods = await getCachedFoods();
-      if (!foods.length) {
-        return '❌ Menu hiện không có sản phẩm. Vui lòng thử lại sau.';
-      }
+      if (!foods.length) return '❌ Menu hiện không có sản phẩm.';
 
-      // Kiểm tra xem user có nói sản phẩm cụ thể không
-      const hasSpecificProduct = foods.some(food => 
-        userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())
-      );
-
-      // Nếu chỉ nói "thêm" mà không chỉ định sản phẩm cụ thể
-      if (!hasSpecificProduct && /^thêm\s*$|^thêm\s*(?:món\s*)?(?:khác)?$/i.test(userMessage.trim())) {
-        // Hiển thị đơn hàng hiện tại
-        let response = '📋 **ĐƠN HÀNG HIỆN TẠI:**\n\n';
-        session.orderCart.forEach((item, idx) => {
-          response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
-        });
-        response += `\n**━━━━━━━━━━━━━━━━**\n`;
-        response += `**Tổng cộng: ${session.totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
-
-        // Đề xuất sản phẩm
-        response += '❓ **BẠN MUỐN THÊM SẢN PHẨM NÀO?**\n\n';
-        response += 'Các sản phẩm có sẵn:\n\n';
-        foods.slice(0, 8).forEach((food, idx) => {
-          const price = food.BienTheMonAn[0]?.GiaBan || 0;
-          response += `${idx + 1}. ${food.TenMonAn} - ${price.toLocaleString('vi-VN')}đ\n`;
-        });
-        response += '\n💬 **Ví dụ:** "Thêm 2 pizza pepperoni, 1 tiramisu"';
-        return response;
-      }
-
-      // Phân tích yêu cầu thêm sản phẩm cụ thể
+      const msgLower = userMessage.toLowerCase();
       let addedItems = [];
       let addedPrice = 0;
 
+      // 2. Tìm sản phẩm dựa trên danh sách món ăn
+      const msgNoAccent = removeAccents(userMessage); // Chuẩn hóa tin nhắn khách gửi
+
       foods.forEach(food => {
-        if (userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())) {
-          // Lấy số lượng từ tin nhắn
-          const qtyMatch = userMessage.match(new RegExp(`(\\d+)\\s*(?:cái|chiếc|ly|đĩa|phần)?\\s*${food.TenMonAn}`, 'i'));
+        const foodNameLower = food.TenMonAn.toLowerCase();
+        const foodNameNoAccent = food.tenKhongDau;
+    
+      if (userMessage.toLowerCase().includes(foodNameLower) || msgNoAccent.includes(foodNameNoAccent)) {          // Regex linh hoạt hơn để bắt số lượng đứng trước tên món
+          // Ví dụ: "thêm 2 pizza", "cho 5 cái pizza"
+          const qtyRegex = new RegExp(`(\\d+)\\s*(?:cái|chiếc|ly|đĩa|phần)?\\s*${foodNameLower}`, 'i');
+          const qtyMatch = userMessage.match(qtyRegex);
           const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-          
+
           const price = food.BienTheMonAn[0]?.GiaBan || 0;
           const subtotal = price * qty;
 
@@ -267,39 +332,47 @@ const addMoreScenario = {
         }
       });
 
-      // Nếu không tìm thấy sản phẩm nào trong yêu cầu
+      // 3. Xử lý kết quả tìm kiếm
       if (addedItems.length === 0) {
-        return '❓ Bạn muốn thêm sản phẩm nào?\n\n' +
-               '💬 Ví dụ: "Thêm 1 pizza pepperoni, 2 tiramisu"';
+        // Nếu user chỉ gõ chung chung "thêm món nữa", hiển thị menu gợi ý
+        let response = '❓ **BẠN MUỐN THÊM MÓN NÀO?**\n\n';
+        response += 'Gợi ý cho bạn:\n';
+        foods.slice(0, 5).forEach(f => {
+          response += `• ${f.TenMonAn} (${f.BienTheMonAn[0]?.GiaBan.toLocaleString('vi-VN')}đ)\n`;
+        });
+        response += '\n💬 **Ví dụ:** "Thêm 2 pizza hải sản"';
+        return response;
       }
 
-      // Thêm vào giỏ hàng
-      session.orderCart.push(...addedItems);
-      session.totalPrice += addedPrice;
-
-      // Tạo phản hồi
-      let response = '✅ **THÊM THÀNH CÔNG!**\n\n';
-      response += '📦 **SẢN PHẨM VỪA THÊM:**\n';
-      addedItems.forEach((item, idx) => {
-        response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+      // 4. Cộng dồn vào giỏ hàng hiện tại (Kiểm tra nếu trùng món thì cộng số lượng thay vì thêm dòng mới)
+      addedItems.forEach(newItem => {
+        const existingItem = session.orderCart.find(item => item.maBienThe === newItem.maBienThe);
+        if (existingItem) {
+          existingItem.soLuong += newItem.soLuong;
+          existingItem.thanhTien += newItem.thanhTien;
+        } else {
+          session.orderCart.push(newItem);
+        }
       });
 
-      response += `\n📋 **ĐƠN HÀNG HIỆN TẠI (${session.orderCart.length} mục):**\n`;
+      session.totalPrice += addedPrice;
+
+      // 5. Tạo phản hồi tổng hợp
+      let response = '✅ **ĐÃ THÊM VÀO GIỎ HÀNG!**\n\n';
+      response += '📋 **ĐƠN HÀNG HIỆN TẠI:**\n';
       session.orderCart.forEach((item, idx) => {
         response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
       });
 
       response += `\n**━━━━━━━━━━━━━━━━**\n`;
       response += `**Tổng cộng: ${session.totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
-      response += '✅ **BƯỚC TIẾP THEO:**\n';
-      response += '1️⃣ Thêm món khác\n';
-      response += '2️⃣ Thanh toán ngay\n';
-      response += '3️⃣ Hủy đơn';
+      response += '1️⃣ Thêm món khác\n2️⃣ Thanh toán ngay\n3️⃣ Hủy đơn';
 
       return response;
+
     } catch (error) {
       console.error('[AddMore] Error:', error);
-      return '❌ Có lỗi khi thêm sản phẩm. Vui lòng thử lại.';
+      return '❌ Có lỗi khi cập nhật đơn hàng.';
     }
   }
 };
@@ -528,64 +601,8 @@ async function checkoutWithDeliveryInfo(session) {
   }
 }
 
-// ============================================
-// HANDLE DELIVERY INFO INPUT
-// ============================================
-const handleDeliveryInput = {
-  name: 'handleDeliveryInput',
-  patterns: [/tên\s*:|sđt\s*:|địa\s*chỉ\s*:/i],
-  response: async (userMessage, session) => {
-    if (!session.awaitingDeliveryInfo) {
-      return null; // Không xử lý nếu không ở trạng thái chờ thông tin giao hàng
-    }
 
-    // Parse thông tin giao hàng
-    const parseResult = await parseDeliveryInfo(userMessage, session);
-    
-    if (!parseResult.success) {
-      return parseResult.message;
-    }
 
-    // Lưu thông tin giao hàng vào session
-    session.deliveryInfo = parseResult.data;
-    session.awaitingDeliveryInfo = false;
-
-    // Xác nhận thông tin
-    let response = '✅ **THÔNG TIN ĐÃ LƯU!**\n\n';
-    response += '📝 **KIỂM TRA THÔNG TIN:**\n';
-    response += `• **Tên:** ${parseResult.data.tenNguoiNhan}\n`;
-    response += `• **SĐT:** ${parseResult.data.soDienThoai}\n`;
-    response += `• **Địa chỉ:** ${parseResult.data.soNhaDuong}, ${parseResult.data.phuongXa}, ${parseResult.data.quanHuyen}, ${parseResult.data.thanhPho}\n`;
-    response += `• **Chi nhánh:** ${parseResult.data.tenCoSo}\n\n`;
-
-    response += '🛒 **ĐƠN HÀNG CỦA BẠN:**\n';
-    session.orderCart.forEach((item, idx) => {
-      response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
-    });
-
-    response += `\n💰 **TỔNG TIỀN:** ${session.totalPrice.toLocaleString('vi-VN')} đ\n\n`;
-
-    response += '✅ **TIẾP TỤC:**\n';
-    response += 'Gõ "thanh toán" hoặc "thanh toán ngay" để hoàn tất đơn hàng';
-
-    return response;
-  }
-};
-
-// ============================================
-
-// ============================================
-// 7. CANCEL ORDER
-// ============================================
-const cancelScenario = {
-  name: 'cancel',
-  patterns: [/hủy/i, /hủy.*đơn/i, /xóa.*đơn/i],
-  response: async (userMessage, session) => {
-    session.orderCart = [];
-    session.totalPrice = 0;
-    return '❌ Đơn hàng đã được hủy!';
-  }
-};
 
 // ============================================
 // 8. COMBO
@@ -616,7 +633,20 @@ const orderStatusScenario = {
   name: 'orderStatus',
   patterns: [/trạng.*thái/i, /đơn.*ở.*đâu/i, /giao.*chưa/i],
   response: async (userMessage, session) => {
-    return '📦 **TRẠNG THÁI ĐƠN:**\n\n⏳ Đang chờ xác nhận';
+    // Tìm SĐT trong tin nhắn hoặc session
+    const sdtMatch = userMessage.match(/(0|\+84)[0-9]{9,10}/);
+    const sdt = sdtMatch ? sdtMatch[0] : session.deliveryInfo?.soDienThoai;
+
+    if (!sdt) return '🔍 Cho mình xin **Số điện thoại** để check đơn nhé!';
+
+    const order = await prisma.donHang.findFirst({
+        where: { SoDienThoaiGiaoHang: sdt },
+        orderBy: { NgayDat: 'desc' },
+        include: { LichSuTrangThaiDonHang: { orderBy: { ThoiGianCapNhat: 'desc' }, take: 1 } }
+    });
+
+    if (!order) return '❌ Không thấy đơn nào của số này ạ.';
+    return `📦 Đơn #${order.MaDonHang}: **${order.LichSuTrangThaiDonHang[0].TrangThai}**`;
   }
 };
 
@@ -680,18 +710,18 @@ const complaintScenario = {
 // ============================================
 module.exports = {
   scenarios: [
-    handleDeliveryInput,
-    greetingScenario,
-    recommendationScenario,
-    viewMenuScenario,
-    askPriceScenario,
-    orderScenario,
-    addMoreScenario,
-    deliveryInfoScenario,
-    cancelScenario,
+    cancelScenario,         // 1. Luôn check lệnh Hủy trước để giải phóng session
+    handleDeliveryInput,    // 2. Check input thông tin nếu đang trong luồng thanh toán
+    orderStatusScenario,    // 3. Check trạng thái đơn (thường chứa SĐT cụ thể)
+    orderScenario,          // 4. Đặt hàng mới
+    addMoreScenario,        // 5. Thêm món vào giỏ
+    deliveryInfoScenario,   // 6. Luồng nhấn nút Thanh toán
+    viewMenuScenario,       // 7. Xem Menu
+    askPriceScenario,       // 8. Hỏi giá
+    recommendationScenario, // 9. Gợi ý
     comboScenario,
     promotionScenario,
-    orderStatusScenario,
+    greetingScenario,       // 10. Chào hỏi (để sau cùng vì pattern rộng)
     deliveryScenario,
     storeInfoScenario,
     memberScenario,
