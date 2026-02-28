@@ -2,8 +2,12 @@
 const express = require('express');
 const chatbotController = require('./chatbot.controller');
 const chatbotService = require('./chatbot.service');
+const { trackResponseTime } = require('./chatbot.optimization');
 
 const router = express.Router();
+
+// Apply performance tracking middleware
+router.use(trackResponseTime);
 
 /**
  * POST /api/chatbot/message

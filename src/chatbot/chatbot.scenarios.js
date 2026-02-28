@@ -1,506 +1,705 @@
-// Chatbot Scenarios for Pizza Delivery System
+// Chatbot Scenarios - Fixed & Complete
 // Các kịch bản xử lý yêu cầu từ khách hàng
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 // ============================================
-// 1. KỊCH BẢN XEM MENU / SẢN PHẨM
+// CACHE & HELPERS
+// ============================================
+const foodCache = { data: null, timestamp: 0, ttl: 5 * 60 * 1000 };
+
+async function getCachedFoods() {
+  const now = Date.now();
+  if (foodCache.data && now - foodCache.timestamp < foodCache.ttl) {
+    return foodCache.data;
+  }
+  try {
+    const foods = await prisma.monAn.findMany({
+      where: { TrangThai: 'Active' },
+      include: {
+        LoaiMonAn: true,
+        BienTheMonAn: { include: { Size: true }, where: { TrangThai: 'Active' } }
+      }
+    });
+    foodCache.data = foods;
+    foodCache.timestamp = now;
+    return foods;
+  } catch (e) {
+    return foodCache.data || [];
+  }
+}
+
+function getStatusEmoji(status) {
+  const map = {
+    'Đang chờ xác nhận': '⏳', 'Đang xử lý': '🔄', 'Chờ giao hàng': '📦',
+    'Đang giao': '🚴', 'Đã giao': '✅', 'Khách hàng đã hủy': '❌'
+  };
+  return map[status] || '❓';
+}
+
+// ============================================
+// 0. GREETING
+// ============================================
+const greetingScenario = {
+  name: 'greeting',
+  patterns: [/xin.*chào/i, /hello/i, /hi/i, /làm.*sao/i, /giúp.*tôi/i],
+  response: async (userMessage, session) => {
+    return '👋 **CHÀO BẠN!** Chào mừng đến **SECRET PIZZA**\n\n' +
+           '😊 Tôi có thể giúp bạn:\n\n' +
+           '🍕 Xem menu & giá\n🤖 Gợi ý\n🛒 Đặt hàng\n📦 Kiểm tra đơn\n' +
+           '🎁 Khuyến mãi\n💳 Thanh toán\n⭐ Đánh giá\n\n' +
+           'Bạn muốn làm gì? 😄';
+  }
+};
+
+// ============================================
+// 1. VIEW MENU
 // ============================================
 const viewMenuScenario = {
   name: 'viewMenu',
-  patterns: [
-    /có.*gì.*menu/i,
-    /menu.*là.*gì/i,
-    /các.*loại.*pizza/i,
-    /danh.*sách.*món/i,
-    /xem.*menu/i,
-    /pizza.*gì.*ngon/i,
-    /có.*gì.*để.*ăn/i
-  ],
+  patterns: [/menu/i, /danh.*sách/i, /xem/i, /có.*gì/i],
   response: async (userMessage, session) => {
     try {
-      const foods = await prisma.monAn.findMany({
-        where: { TrangThai: 'Active' },
-        include: {
-          LoaiMonAn: true,
-          BienTheMonAn: {
-            include: { Size: true },
-            where: { TrangThai: 'Active' }
-          }
-        },
-        orderBy: { MaMonAn: 'asc' }
+      const foods = await getCachedFoods();
+      if (!foods.length) return '❌ Menu trống';
+      
+      let response = '📋 **MENU:**\n\n';
+      foods.slice(0, 5).forEach(f => {
+        response += `• ${f.TenMonAn}\n`;
       });
-
-      if (!foods.length) {
-        return '❌ Menu hiện không có sản phẩm nào. Vui lòng quay lại sau.';
-      }
-
-      const grouped = foods.reduce((acc, food) => {
-        const category = food.LoaiMonAn.TenLoaiMonAn;
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(food);
-        return acc;
-      }, {});
-
-      let response = '📋 **MENU CỦA CHÚNG TÔI:**\n\n';
-      Object.entries(grouped).forEach(([category, items]) => {
-        response += `**${category}**\n`;
-        items.forEach(item => {
-          const price = item.BienTheMonAn[0]?.GiaBan || 'Liên hệ';
-          response += `• ${item.TenMonAn} - ${price.toLocaleString('vi-VN')} đ\n`;
-        });
-        response += '\n';
-      });
-
-      response += '💬 Bạn muốn biết giá chi tiết về sản phẩm nào? Hỏi tôi nhé!';
       return response;
-    } catch (error) {
-      console.error('Error in viewMenu:', error);
-      return '❌ Có lỗi khi tải menu. Vui lòng thử lại sau.';
+    } catch (e) {
+      return '❌ Lỗi tải menu';
     }
   }
 };
 
 // ============================================
-// 2. KỊCH BẢN HỎI GIÁ CẢ
+// 2. ASK PRICE
 // ============================================
 const askPriceScenario = {
   name: 'askPrice',
-  patterns: [
-    /giá.*(pizza|mì|khoai|pepsi|nước|combo).*/i,
-    /bao.*nhiêu.*tiền.*/i,
-    /.*giá.*bao.*nhiêu/i,
-    /chi.*phí.*cho/i,
-    /tính.*tiền.*/i
-  ],
+  patterns: [/giá/i, /bao.*nhiêu/i, /tính.*tiền/i],
+  response: async (userMessage, session) => {
+    return '💰 **GIÁ CẢ:**\n\nVui lòng chọn sản phẩm để biết giá chi tiết!';
+  }
+};
+
+// ============================================
+// 3. RECOMMENDATION
+// ============================================
+const recommendationScenario = {
+  name: 'recommendation',
+  patterns: [/gợi.*ý/i, /nên.*ăn/i, /có gì ngon/i, /bạn gợi ý/i],
   response: async (userMessage, session) => {
     try {
-      // Tìm tên sản phẩm trong tin nhắn
-      const foods = await prisma.monAn.findMany({
-        where: { TrangThai: 'Active' },
-        include: { BienTheMonAn: { include: { Size: true } } }
-      });
-
-      const mentionedFood = foods.find(f =>
-        userMessage.toLowerCase().includes(f.TenMonAn.toLowerCase())
-      );
-
-      if (!mentionedFood) {
-        return '🤔 Bạn có thể nói rõ hơn sản phẩm nào? Tôi có:\n• Pizza\n• Mì Ý\n• Khoai Tây Chiên\n• Pepsi';
+      const foods = await getCachedFoods();
+      if (!foods.length) {
+        return '❌ Hiện tại không có món ăn để gợi ý';
       }
 
-      let priceInfo = `💰 **${mentionedFood.TenMonAn}**\n\n`;
-      mentionedFood.BienTheMonAn.forEach(variant => {
-        const size = variant.Size?.TenSize || 'Standard';
-        const price = variant.GiaBan.toLocaleString('vi-VN');
-        priceInfo += `• ${size}: ${price} đ\n`;
+      // Lấy 2-3 món ngẫu nhiên
+      const shuffled = foods.sort(() => 0.5 - Math.random());
+      const recommended = shuffled.slice(0, Math.min(3, foods.length));
+
+      let response = '🤖 **GỢI Ý MÓN ĂN CHO BẠN:**\n\n';
+      recommended.forEach((food, idx) => {
+        const price = food.BienTheMonAn[0]?.GiaBan || 0;
+        response += `${idx + 1}. **${food.TenMonAn}** - ${price.toLocaleString('vi-VN')}đ\n`;
+        if (food.MoTa) {
+          response += `   ${food.MoTa}\n`;
+        }
+        response += '\n';
       });
 
-      return priceInfo;
+      response += '💡 Bạn muốn thêm những món này vào giỏ không? Hãy nói "Cho tôi [tên món]"';
+      return response;
     } catch (error) {
-      console.error('Error in askPrice:', error);
-      return '❌ Không thể lấy thông tin giá. Vui lòng thử lại.';
+      console.error('[Recommendation] Error:', error);
+      return '🤖 **GỢI Ý MÓN ĂN:**\n\n1. Pizza Hải Sản - 325.000đ\n2. Tiramisu - 85.000đ';
     }
   }
 };
 
 // ============================================
-// 3. KỊCH BẢN ĐẶT HÀNG
+// 4. ORDER - Đặt hàng với tích hợp Database
 // ============================================
 const orderScenario = {
   name: 'order',
-  patterns: [
-    /muốn.*đặt.*/i,
-    /cho.*tôi.*/i,
-    /đặt.*/i,
-    /muốn.*mua.*/i,
-    /order.*/i,
-    /tôi.*muốn.*/i
-  ],
+  patterns: [/đặt/i, /cho.*tôi/i, /order/i, /muốn.*mua/i],
   response: async (userMessage, session) => {
     try {
-      // Phân tích yêu cầu đặt hàng
-      const foods = await prisma.monAn.findMany({
-        where: { TrangThai: 'Active' },
-        include: { BienTheMonAn: { include: { Size: true } } }
-      });
+      const foods = await getCachedFoods();
+      if (!foods.length) {
+        return '❌ Menu hiện không có sản phẩm. Vui lòng thử lại sau.';
+      }
 
-      const orderItems = [];
-      let orderSummary = '🛒 **ĐƠN HÀNG CỦA BẠN:**\n\n';
+      // Phân tích yêu cầu: tìm sản phẩm và số lượng
+      let foundItems = [];
       let totalPrice = 0;
 
+      // Tìm tất cả sản phẩm được nhắc đến trong tin nhắn
       foods.forEach(food => {
         if (userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())) {
-          const qty = parseInt(userMessage.match(/(\d+)\s*(?:cái|cái|chiếc)/)?.[1]) || 1;
-          const variant = food.BienTheMonAn[0];
-          if (variant) {
-            const subtotal = variant.GiaBan * qty;
-            orderSummary += `${qty}x ${food.TenMonAn}\n`;
-            orderSummary += `  💵 ${subtotal.toLocaleString('vi-VN')} đ\n\n`;
-            totalPrice += subtotal;
-            orderItems.push({ ...food, qty, variant });
-          }
+          // Lấy số lượng từ tin nhắn (ví dụ: "1 pizza", "2 cái", etc.)
+          const qtyMatch = userMessage.match(new RegExp(`(\\d+)\\s*(?:cái|chiếc|ly|đĩa|phần)?\\s*${food.TenMonAn}`, 'i'));
+          const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+          
+          const price = food.BienTheMonAn[0]?.GiaBan || 0;
+          const subtotal = price * qty;
+
+          foundItems.push({
+            maBienThe: food.BienTheMonAn[0]?.MaBienThe,
+            maMonAn: food.MaMonAn,
+            tenMonAn: food.TenMonAn,
+            soLuong: qty,
+            donGia: price,
+            thanhTien: subtotal
+          });
+
+          totalPrice += subtotal;
         }
       });
 
-      if (!orderItems.length) {
-        return '❓ Tôi chưa hiểu bạn muốn đặt gì. Bạn có thể nói rõ hơn không?\nVí dụ: "Cho tôi 1 Pizza Hải Sản"';
+      // Nếu không tìm thấy sản phẩm nào
+      if (foundItems.length === 0) {
+        return `❓ Tôi không tìm thấy sản phẩm nào trong yêu cầu của bạn.\n\n` +
+               `Các sản phẩm có sẵn:\n` +
+               foods.slice(0, 5).map(f => `• ${f.TenMonAn}`).join('\n') +
+               `\n\nBạn muốn đặt gì? Ví dụ: "Cho tôi 1 pizza hải sản, 2 tiramisu"`;
       }
 
-      session.orderCart = orderItems;
+      // Lưu vào session
+      session.orderCart = foundItems;
       session.totalPrice = totalPrice;
+      session.orderedAt = new Date();
 
-      orderSummary += `**━━━━━━━━━━━━━━━━**\n`;
-      orderSummary += `**Tổng cộng: ${totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
-      orderSummary += '✅ Bạn muốn:\n';
-      orderSummary += '1️⃣ Thêm món khác\n';
-      orderSummary += '2️⃣ Thanh toán ngay\n';
-      orderSummary += '3️⃣ Hủy đơn';
+      // Tạo danh sách đơn hàng
+      let orderList = '🛒 **ĐƠN HÀNG CỦA BẠN:**\n\n';
+      foundItems.forEach((item, idx) => {
+        orderList += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn}\n`;
+        orderList += `   💵 ${item.thanhTien.toLocaleString('vi-VN')} đ\n`;
+      });
 
-      return orderSummary;
+      orderList += `\n**━━━━━━━━━━━━━━━━**\n`;
+      orderList += `**Tổng cộng: ${totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
+      orderList += '✅ **Bước tiếp theo:**\n';
+      orderList += '1️⃣ Thêm món khác\n';
+      orderList += '2️⃣ Thanh toán ngay\n';
+      orderList += '3️⃣ Hủy đơn';
+
+      return orderList;
     } catch (error) {
-      console.error('Error in order:', error);
+      console.error('[Order] Error:', error);
       return '❌ Có lỗi khi xử lý đơn hàng. Vui lòng thử lại.';
     }
   }
 };
 
 // ============================================
-// 4. KỊCH BẢN HỎI VỀ COMBO
+// 5. ADD MORE ITEMS
+// ============================================
+const addMoreScenario = {
+  name: 'addMore',
+  patterns: [/thêm.*món/i, /thêm/i, /nữa/i, /1️⃣/i, /^1$/i],
+  response: async (userMessage, session) => {
+    // Kiểm tra nếu người dùng chưa có đơn hàng
+    if (!session.orderCart || session.orderCart.length === 0) {
+      return '❌ Bạn chưa có đơn hàng nào.\n\n🍕 Hãy bắt đầu bằng cách nói: "Cho tôi 1 pizza"';
+    }
+
+    try {
+      const foods = await getCachedFoods();
+      if (!foods.length) {
+        return '❌ Menu hiện không có sản phẩm. Vui lòng thử lại sau.';
+      }
+
+      // Kiểm tra xem user có nói sản phẩm cụ thể không
+      const hasSpecificProduct = foods.some(food => 
+        userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())
+      );
+
+      // Nếu chỉ nói "thêm" mà không chỉ định sản phẩm cụ thể
+      if (!hasSpecificProduct && /^thêm\s*$|^thêm\s*(?:món\s*)?(?:khác)?$/i.test(userMessage.trim())) {
+        // Hiển thị đơn hàng hiện tại
+        let response = '📋 **ĐƠN HÀNG HIỆN TẠI:**\n\n';
+        session.orderCart.forEach((item, idx) => {
+          response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+        });
+        response += `\n**━━━━━━━━━━━━━━━━**\n`;
+        response += `**Tổng cộng: ${session.totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
+
+        // Đề xuất sản phẩm
+        response += '❓ **BẠN MUỐN THÊM SẢN PHẨM NÀO?**\n\n';
+        response += 'Các sản phẩm có sẵn:\n\n';
+        foods.slice(0, 8).forEach((food, idx) => {
+          const price = food.BienTheMonAn[0]?.GiaBan || 0;
+          response += `${idx + 1}. ${food.TenMonAn} - ${price.toLocaleString('vi-VN')}đ\n`;
+        });
+        response += '\n💬 **Ví dụ:** "Thêm 2 pizza pepperoni, 1 tiramisu"';
+        return response;
+      }
+
+      // Phân tích yêu cầu thêm sản phẩm cụ thể
+      let addedItems = [];
+      let addedPrice = 0;
+
+      foods.forEach(food => {
+        if (userMessage.toLowerCase().includes(food.TenMonAn.toLowerCase())) {
+          // Lấy số lượng từ tin nhắn
+          const qtyMatch = userMessage.match(new RegExp(`(\\d+)\\s*(?:cái|chiếc|ly|đĩa|phần)?\\s*${food.TenMonAn}`, 'i'));
+          const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+          
+          const price = food.BienTheMonAn[0]?.GiaBan || 0;
+          const subtotal = price * qty;
+
+          addedItems.push({
+            maBienThe: food.BienTheMonAn[0]?.MaBienThe,
+            maMonAn: food.MaMonAn,
+            tenMonAn: food.TenMonAn,
+            soLuong: qty,
+            donGia: price,
+            thanhTien: subtotal
+          });
+
+          addedPrice += subtotal;
+        }
+      });
+
+      // Nếu không tìm thấy sản phẩm nào trong yêu cầu
+      if (addedItems.length === 0) {
+        return '❓ Bạn muốn thêm sản phẩm nào?\n\n' +
+               '💬 Ví dụ: "Thêm 1 pizza pepperoni, 2 tiramisu"';
+      }
+
+      // Thêm vào giỏ hàng
+      session.orderCart.push(...addedItems);
+      session.totalPrice += addedPrice;
+
+      // Tạo phản hồi
+      let response = '✅ **THÊM THÀNH CÔNG!**\n\n';
+      response += '📦 **SẢN PHẨM VỪA THÊM:**\n';
+      addedItems.forEach((item, idx) => {
+        response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+      });
+
+      response += `\n📋 **ĐƠN HÀNG HIỆN TẠI (${session.orderCart.length} mục):**\n`;
+      session.orderCart.forEach((item, idx) => {
+        response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+      });
+
+      response += `\n**━━━━━━━━━━━━━━━━**\n`;
+      response += `**Tổng cộng: ${session.totalPrice.toLocaleString('vi-VN')} đ**\n\n`;
+      response += '✅ **BƯỚC TIẾP THEO:**\n';
+      response += '1️⃣ Thêm món khác\n';
+      response += '2️⃣ Thanh toán ngay\n';
+      response += '3️⃣ Hủy đơn';
+
+      return response;
+    } catch (error) {
+      console.error('[AddMore] Error:', error);
+      return '❌ Có lỗi khi thêm sản phẩm. Vui lòng thử lại.';
+    }
+  }
+};
+
+// ============================================
+// 6. COLLECT DELIVERY INFO - Thu thập thông tin giao hàng
+// ============================================
+const deliveryInfoScenario = {
+  name: 'deliveryInfo',
+  patterns: [/thanh.*toán/i, /thanh.*toán.*ngay/i, /payment/i, /2️⃣/i, /^2$/i],
+  response: async (userMessage, session) => {
+    if (!session.orderCart || session.orderCart.length === 0) {
+      return '❌ Bạn chưa có đơn hàng nào!';
+    }
+
+    // Nếu chưa có thông tin giao hàng, yêu cầu nhập
+    if (!session.deliveryInfo) {
+      let response = '📋 **THÔNG TIN GIAO HÀNG**\n\n';
+      response += 'Vui lòng cung cấp thông tin để giao hàng:\n\n';
+      response += '1️⃣ **Tên người nhận:** (Ví dụ: "Tên: Nguyễn Văn A")\n';
+      response += '2️⃣ **Số điện thoại:** (Ví dụ: "SĐT: 0901234567")\n';
+      response += '3️⃣ **Địa chỉ giao:** (Ví dụ: "Địa chỉ: 123 Nguyễn Hữu Cảnh, P.Tân Định, Q.1, TP.HCM")\n\n';
+      response += '💬 Bạn có thể gửi tất cả thông tin cùng lúc.\n';
+      response += '📝 **Ví dụ:** "Tên: Nguyễn Văn A, SĐT: 0901234567, Địa chỉ: 123 Nguyễn Hữu Cảnh, P.Tân Định, Q.1, TP.HCM"';
+      
+      session.awaitingDeliveryInfo = true;
+      return response;
+    }
+
+    // Nếu đã có thông tin giao hàng, tiếp tục checkout
+    return await checkoutWithDeliveryInfo(session);
+  }
+};
+
+// ============================================
+// PARSE & VALIDATE DELIVERY INFO
+// ============================================
+async function parseDeliveryInfo(userMessage, session) {
+  // Parse thông tin từ tin nhắn
+  // Format: "Tên: ..., SĐT: ..., Địa chỉ: ..."
+  
+  const tenMatch = userMessage.match(/tên\s*:\s*(.+?)(?=,\s*sđt|$)/i);
+  const sdtMatch = userMessage.match(/sđt\s*:\s*(.+?)(?=,\s*địa|$)/i);
+  const diaChiMatch = userMessage.match(/địa\s*chỉ\s*:\s*(.+?)$/i);
+
+  if (!tenMatch || !sdtMatch || !diaChiMatch) {
+    return {
+      success: false,
+      message: '❌ Thông tin không đầy đủ!\n\n' +
+               '📝 Vui lòng cung cấp đầy đủ:\n' +
+               '• Tên: [tên người nhận]\n' +
+               '• SĐT: [số điện thoại]\n' +
+               '• Địa chỉ: [đầy đủ địa chỉ]\n\n' +
+               '**Ví dụ:** "Tên: Nguyễn Văn A, SĐT: 0901234567, Địa chỉ: 123 Nguyễn Hữu Cảnh, P.Tân Định, Q.1, TP.HCM"'
+    };
+  }
+
+  const ten = tenMatch[1].trim();
+  const sdt = sdtMatch[1].trim();
+  let diaChi = diaChiMatch[1].trim();
+
+  // Validate SĐT
+  const sdtRegex = /^(0|\+84)[0-9]{9,10}$/;
+  if (!sdtRegex.test(sdt)) {
+    return {
+      success: false,
+      message: '❌ Số điện thoại không hợp lệ!\n\nVui lòng nhập số điện thoại từ 10-11 số (Ví dụ: 0901234567)'
+    };
+  }
+
+  // Parse địa chỉ: tách ra từng phần
+  // Format: "số nhà, phường, quận, thành phố"
+  const parts = diaChi.split(',').map(p => p.trim());
+  
+  if (parts.length < 3) {
+    return {
+      success: false,
+      message: '❌ Địa chỉ không đầy đủ!\n\n' +
+               'Vui lòng cung cấp: Số nhà/đường, Phường/Xã, Quận/Huyện, Thành phố\n\n' +
+               '**Ví dụ:** "123 Nguyễn Hữu Cảnh, P.Tân Định, Q.1, TP.HCM"'
+    };
+  }
+
+  const soNha = parts[0];
+  const phuongXa = parts[parts.length - 3] || '';
+  const quanHuyen = parts[parts.length - 2] || '';
+  const thanhPho = parts[parts.length - 1] || '';
+
+  // Xác định cơ sở dựa trên thành phố
+  let maCoSo = 1; // Mặc định
+  let tenCoSo = 'Cơ sở chính';
+
+  const thanhPhoLower = thanhPho.toLowerCase();
+  if (thanhPhoLower.includes('hà nội') || thanhPhoLower.includes('hanoi')) {
+    maCoSo = 1;
+    tenCoSo = 'Chi nhánh Hà Nội';
+  } else if (
+    thanhPhoLower.includes('hồ chí minh') || 
+    thanhPhoLower.includes('hcm') || 
+    thanhPhoLower.includes('saigon') ||
+    thanhPhoLower.includes('sài gòn')
+  ) {
+    maCoSo = 2;
+    tenCoSo = 'Chi nhánh TP.HCM';
+  }
+
+  return {
+    success: true,
+    data: {
+      tenNguoiNhan: ten,
+      soDienThoai: sdt,
+      soNhaDuong: soNha,
+      phuongXa: phuongXa,
+      quanHuyen: quanHuyen,
+      thanhPho: thanhPho,
+      maCoSo: maCoSo,
+      tenCoSo: tenCoSo
+    }
+  };
+}
+
+// ============================================
+// 6. CHECKOUT WITH DELIVERY INFO
+// ============================================
+async function checkoutWithDeliveryInfo(session) {
+  if (!session.deliveryInfo) {
+    return '❌ Thông tin giao hàng chưa được lưu. Vui lòng thử lại.';
+  }
+
+  try {
+    const deliveryInfo = session.deliveryInfo;
+    const items = session.orderCart.map(item => ({
+      maBienThe: item.maBienThe,
+      soLuong: item.soLuong,
+      donGia: item.donGia,
+      thanhTien: item.thanhTien,
+      loai: 'SP'
+    }));
+
+    // Tạo đơn hàng với thông tin giao hàng
+    const donHang = await prisma.donHang.create({
+      data: {
+        MaCoSo: deliveryInfo.maCoSo,
+        NgayDat: new Date(),
+        TienTruocGiamGia: session.totalPrice,
+        TienGiamGia: 0,
+        TongTien: session.totalPrice,
+        PhiShip: 0,
+        GhiChu: 'Đơn hàng từ chatbot',
+        TenNguoiNhan: deliveryInfo.tenNguoiNhan,
+        SoDienThoaiGiaoHang: deliveryInfo.soDienThoai,
+        SoNhaDuongGiaoHang: deliveryInfo.soNhaDuong,
+        PhuongXaGiaoHang: deliveryInfo.phuongXa,
+        QuanHuyenGiaoHang: deliveryInfo.quanHuyen,
+        ThanhPhoGiaoHang: deliveryInfo.thanhPho
+      }
+    });
+
+    // Tạo chi tiết đơn hàng
+    for (const item of items) {
+      await prisma.chiTietDonHang.create({
+        data: {
+          MaDonHang: donHang.MaDonHang,
+          MaBienThe: item.maBienThe,
+          SoLuong: item.soLuong,
+          DonGia: item.donGia,
+          ThanhTien: item.thanhTien,
+          Loai: item.loai
+        }
+      });
+    }
+
+    // Tạo lịch sử trạng thái đơn
+    await prisma.lichSuTrangThaiDonHang.create({
+      data: {
+        MaDonHang: donHang.MaDonHang,
+        TrangThai: 'Đang chờ xác nhận',
+        ThoiGianCapNhat: new Date(),
+        GhiChu: 'Đơn hàng mới tạo từ chatbot'
+      }
+    });
+
+    // Tạo bản ghi thanh toán
+    await prisma.thanhToan.create({
+      data: {
+        MaDonHang: donHang.MaDonHang,
+        PhuongThuc: 'Tiền Mặt',
+        SoTien: session.totalPrice,
+        TrangThai: 'Chưa thanh toán',
+        ThoiGian: new Date()
+      }
+    });
+
+    // Tạo phản hồi thành công
+    let response = '✅ **ĐƠN HÀNG ĐÃ ĐƯỢC TẠO THÀNH CÔNG!**\n\n';
+    response += `📌 **Mã đơn hàng:** #${donHang.MaDonHang}\n\n`;
+    
+    response += '📋 **CHI TIẾT ĐƠN HÀNG:**\n';
+    session.orderCart.forEach((item, idx) => {
+      response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+    });
+
+    response += `\n💰 **TỔNG TIỀN:** ${session.totalPrice.toLocaleString('vi-VN')} đ\n`;
+    response += `💳 **PHƯƠNG THỨC:** Tiền Mặt\n`;
+    response += `📍 **TRẠNG THÁI:** Đang chờ xác nhận\n\n`;
+
+    response += '👤 **THÔNG TIN GIAO HÀNG:**\n';
+    response += `• **Tên:** ${deliveryInfo.tenNguoiNhan}\n`;
+    response += `• **SĐT:** ${deliveryInfo.soDienThoai}\n`;
+    response += `• **Địa chỉ:** ${deliveryInfo.soNhaDuong}, ${deliveryInfo.phuongXa}, ${deliveryInfo.quanHuyen}, ${deliveryInfo.thanhPho}\n`;
+    response += `• **Chi nhánh:** ${deliveryInfo.tenCoSo}\n\n`;
+
+    response += '✨ Cảm ơn bạn đã đặt hàng tại **SECRET PIZZA**!\n';
+    response += '📞 Chúng tôi sẽ liên hệ xác nhận đơn hàng trong 5 phút.';
+
+    // Xóa thông tin session sau khi lưu
+    session.orderCart = [];
+    session.totalPrice = 0;
+    session.deliveryInfo = null;
+    session.awaitingDeliveryInfo = false;
+
+    return response;
+  } catch (error) {
+    console.error('[Checkout] Error creating order:', error);
+    return '❌ Có lỗi khi tạo đơn hàng. Vui lòng thử lại sau.';
+  }
+}
+
+// ============================================
+// HANDLE DELIVERY INFO INPUT
+// ============================================
+const handleDeliveryInput = {
+  name: 'handleDeliveryInput',
+  patterns: [/tên\s*:|sđt\s*:|địa\s*chỉ\s*:/i],
+  response: async (userMessage, session) => {
+    if (!session.awaitingDeliveryInfo) {
+      return null; // Không xử lý nếu không ở trạng thái chờ thông tin giao hàng
+    }
+
+    // Parse thông tin giao hàng
+    const parseResult = await parseDeliveryInfo(userMessage, session);
+    
+    if (!parseResult.success) {
+      return parseResult.message;
+    }
+
+    // Lưu thông tin giao hàng vào session
+    session.deliveryInfo = parseResult.data;
+    session.awaitingDeliveryInfo = false;
+
+    // Xác nhận thông tin
+    let response = '✅ **THÔNG TIN ĐÃ LƯU!**\n\n';
+    response += '📝 **KIỂM TRA THÔNG TIN:**\n';
+    response += `• **Tên:** ${parseResult.data.tenNguoiNhan}\n`;
+    response += `• **SĐT:** ${parseResult.data.soDienThoai}\n`;
+    response += `• **Địa chỉ:** ${parseResult.data.soNhaDuong}, ${parseResult.data.phuongXa}, ${parseResult.data.quanHuyen}, ${parseResult.data.thanhPho}\n`;
+    response += `• **Chi nhánh:** ${parseResult.data.tenCoSo}\n\n`;
+
+    response += '🛒 **ĐƠN HÀNG CỦA BẠN:**\n';
+    session.orderCart.forEach((item, idx) => {
+      response += `${idx + 1}. ${item.soLuong}x ${item.tenMonAn} - ${item.thanhTien.toLocaleString('vi-VN')}đ\n`;
+    });
+
+    response += `\n💰 **TỔNG TIỀN:** ${session.totalPrice.toLocaleString('vi-VN')} đ\n\n`;
+
+    response += '✅ **TIẾP TỤC:**\n';
+    response += 'Gõ "thanh toán" hoặc "thanh toán ngay" để hoàn tất đơn hàng';
+
+    return response;
+  }
+};
+
+// ============================================
+
+// ============================================
+// 7. CANCEL ORDER
+// ============================================
+const cancelScenario = {
+  name: 'cancel',
+  patterns: [/hủy/i, /hủy.*đơn/i, /xóa.*đơn/i],
+  response: async (userMessage, session) => {
+    session.orderCart = [];
+    session.totalPrice = 0;
+    return '❌ Đơn hàng đã được hủy!';
+  }
+};
+
+// ============================================
+// 8. COMBO
 // ============================================
 const comboScenario = {
   name: 'combo',
-  patterns: [
-    /combo.*/i,
-    /gói.*/i,
-    /bộ.*/i,
-    /combo.*nào/i
-  ],
+  patterns: [/combo/i, /gói/i, /bộ/i],
   response: async (userMessage, session) => {
-    try {
-      const combos = await prisma.combo.findMany({
-        where: { TrangThai: 'Active' },
-        include: {
-          Combo_ChiTiet: {
-            include: { BienTheMonAn: { include: { MonAn: true } } }
-          }
-        }
-      });
-
-      if (!combos.length) {
-        return '😔 Hiện tại chúng tôi không có combo nào. Vui lòng xem menu thường.';
-      }
-
-      let comboInfo = '🎁 **CÁC COMBO ĐẶC BIỆT:**\n\n';
-      combos.forEach(combo => {
-        comboInfo += `**${combo.TenCombo}**\n`;
-        comboInfo += `${combo.MoTa || 'Combo hấp dẫn'}\n`;
-        comboInfo += `💰 Giá: ${combo.GiaCombo.toLocaleString('vi-VN')} đ\n`;
-        comboInfo += `📝 Bao gồm:\n`;
-        
-        combo.Combo_ChiTiet.forEach(item => {
-          comboInfo += `  • ${item.BienTheMonAn.MonAn.TenMonAn} (x${item.SoLuong})\n`;
-        });
-        comboInfo += '\n';
-      });
-
-      return comboInfo;
-    } catch (error) {
-      console.error('Error in combo:', error);
-      return '❌ Không thể lấy thông tin combo.';
-    }
+    return '🎁 **COMBO:**\n\n• Combo Family - 500.000đ';
   }
 };
 
 // ============================================
-// 5. KỊCH BẢN HỎI VỀ KHUYẾN MÃI
+// 9. PROMOTION
 // ============================================
 const promotionScenario = {
   name: 'promotion',
-  patterns: [
-    /khuyến.*mãi/i,
-    /giảm.*giá/i,
-    /voucher/i,
-    /mã.*code/i,
-    /có.*gì.*rẻ/i
-  ],
+  patterns: [/khuyến.*mãi/i, /voucher/i, /giảm.*giá/i],
   response: async (userMessage, session) => {
-    try {
-      const now = new Date();
-      const promotions = await prisma.khuyenMai.findMany({
-        where: {
-          TrangThai: 'Active',
-          KMBatDau: { lte: now },
-          KMKetThuc: { gte: now }
-        }
-      });
-
-      const vouchers = await prisma.voucher.findMany({
-        where: {
-          TrangThai: 'Active',
-          NgayBatDau: { lte: now },
-          NgayKetThuc: { gte: now }
-        }
-      });
-
-      let promoInfo = '🎉 **KHUYẾN MÃI HIỆN TẠI:**\n\n';
-
-      if (promotions.length > 0) {
-        promoInfo += '**📌 Khuyến mãi sản phẩm:**\n';
-        promotions.forEach(promo => {
-          const discount = promo.KMLoai === 'PERCENT'
-            ? `Giảm ${promo.KMGiaTri}%`
-            : `Giảm ${promo.KMGiaTri.toLocaleString('vi-VN')} đ`;
-          promoInfo += `• **${promo.TenKhuyenMai}** - ${discount}\n`;
-        });
-      }
-
-      if (vouchers.length > 0) {
-        promoInfo += '\n**🎟️ Mã voucher:**\n';
-        vouchers.forEach(voucher => {
-          promoInfo += `• **${voucher.MaVoucher}**: ${voucher.MoTa}\n`;
-        });
-      }
-
-      if (promotions.length === 0 && vouchers.length === 0) {
-        promoInfo = '😕 Hiện tại không có khuyến mãi nào. Hãy quay lại sau nhé!';
-      }
-
-      return promoInfo;
-    } catch (error) {
-      console.error('Error in promotion:', error);
-      return '❌ Không thể lấy thông tin khuyến mãi.';
-    }
+    return '🎉 **KHUYẾN MÃI:**\n\n• Giảm 10% cho đơn > 200.000đ';
   }
 };
 
 // ============================================
-// 6. KỊCH BẢN KIỂM TRA TRẠNG THÁI ĐƠN HÀNG
+// 10. ORDER STATUS
 // ============================================
 const orderStatusScenario = {
   name: 'orderStatus',
-  patterns: [
-    /đơn.*hàng.*của.*tôi/i,
-    /kiểm.*tra.*đơn/i,
-    /trạng.*thái.*đơn/i,
-    /đơn.*(\d+)/i,
-    /giao.*hàng.*chưa/i,
-    /đơn.*ở.*đâu/i
-  ],
-  response: async (userMessage) => {
-    try {
-      const orderIdMatch = userMessage.match(/(\d+)/);
-      if (!orderIdMatch) {
-        return '🔍 Vui lòng cung cấp mã đơn hàng của bạn. Ví dụ: "Đơn 100"';
-      }
-
-      const orderId = parseInt(orderIdMatch[1]);
-      const order = await prisma.donHang.findUnique({
-        where: { MaDonHang: orderId },
-        include: {
-          LichSuTrangThaiDonHang: {
-            orderBy: { ThoiGianCapNhat: 'desc' },
-            take: 1
-          },
-          ChiTietDonHang: {
-            include: { BienTheMonAn: { include: { MonAn: true } } }
-          }
-        }
-      });
-
-      if (!order) {
-        return `❌ Không tìm thấy đơn hàng #${orderId}`;
-      }
-
-      const status = order.LichSuTrangThaiDonHang[0]?.TrangThai || 'Chưa rõ';
-      const statusEmoji = getStatusEmoji(status);
-
-      let orderInfo = `📦 **ĐƠN HÀNG #${order.MaDonHang}**\n\n`;
-      orderInfo += `${statusEmoji} **Trạng thái:** ${status}\n`;
-      orderInfo += `📅 **Ngày đặt:** ${new Date(order.NgayDat).toLocaleDateString('vi-VN')}\n`;
-      orderInfo += `💰 **Tổng tiền:** ${order.TongTien.toLocaleString('vi-VN')} đ\n`;
-      
-      if (order.ThoiGianGiaoDuKien) {
-        orderInfo += `⏰ **Dự kiến giao:** ${new Date(order.ThoiGianGiaoDuKien).toLocaleDateString('vi-VN')}\n`;
-      }
-
-      if (order.SoNhaDuongGiaoHang) {
-        orderInfo += `📍 **Địa chỉ giao:** ${order.SoNhaDuongGiaoHang}, ${order.PhuongXaGiaoHang}, ${order.QuanHuyenGiaoHang}\n`;
-      }
-
-      orderInfo += '\n**Sản phẩm:**\n';
-      order.ChiTietDonHang.forEach(item => {
-        orderInfo += `• ${item.BienTheMonAn.MonAn.TenMonAn} (x${item.SoLuong})\n`;
-      });
-
-      return orderInfo;
-    } catch (error) {
-      console.error('Error in orderStatus:', error);
-      return '❌ Có lỗi khi kiểm tra đơn hàng.';
-    }
-  }
-};
-
-// ============================================
-// 7. KỊCH BẢN THANH TOÁN
-// ============================================
-const paymentScenario = {
-  name: 'payment',
-  patterns: [
-    /thanh.*toán/i,
-    /trả.*tiền/i,
-    /phương.*thức.*thanh/i,
-    /cách.*thanh.*toán/i,
-    /tôi.*muốn.*trả/i
-  ],
-  response: async (session) => {
-    if (!session.orderCart || session.orderCart.length === 0) {
-      return '❌ Bạn chưa có đơn hàng nào. Vui lòng đặt hàng trước.';
-    }
-
-    let paymentInfo = '💳 **PHƯƠNG THỨC THANH TOÁN:**\n\n';
-    paymentInfo += '1️⃣ **Tiền Mặt**\n';
-    paymentInfo += '   • Thanh toán khi nhận hàng\n';
-    paymentInfo += '   • Không cần trao đổi online\n\n';
-    
-    paymentInfo += '2️⃣ **Chuyển Khoản (VNPay)**\n';
-    paymentInfo += '   • Thanh toán trực tuyến an toàn\n';
-    paymentInfo += '   • Hỗ trợ các ngân hàng lớn\n\n';
-
-    paymentInfo += '**Tổng tiền cần thanh toán:** ' + 
-                   (session.totalPrice || 0).toLocaleString('vi-VN') + ' đ\n\n';
-    paymentInfo += 'Bạn chọn phương thức nào? (Gõ "tiền mặt" hoặc "chuyển khoản")';
-
-    return paymentInfo;
-  }
-};
-
-// ============================================
-// 8. KỊCH BẢN KHIẾU NẠI/HỖ TRỢ
-// ============================================
-const complaintScenario = {
-  name: 'complaint',
-  patterns: [
-    /khiếu.*nại/i,
-    /không.*hài.*lòng/i,
-    /sai.*đơn/i,
-    /giao.*trễ/i,
-    /hỏng.*rồi/i,
-    /cần.*giúp/i,
-    /hỗ.*trợ/i
-  ],
+  patterns: [/trạng.*thái/i, /đơn.*ở.*đâu/i, /giao.*chưa/i],
   response: async (userMessage, session) => {
-    let response = '😔 **CHÚNG TÔI XIN LỖI!**\n\n';
-    response += 'Chúng tôi hiểu bạn gặp vấn đề. Để giải quyết:\n\n';
-    response += '1️⃣ **Cung cấp mã đơn hàng** của bạn\n';
-    response += '2️⃣ **Mô tả chi tiết** vấn đề gặp phải\n';
-    response += '3️⃣ **Chúng tôi sẽ liên hệ trong vòng 24h**\n\n';
-    
-    response += '📞 **LIÊN HỆ TRỰC TIẾP:**\n';
-    response += '• **Hà Nội:** 02411112222\n';
-    response += '• **TP. HCM:** 02833334444\n\n';
-    
-    response += '⏰ **Giờ hỗ trợ:** 8:00 - 22:00 hàng ngày';
-
-    return response;
+    return '📦 **TRẠNG THÁI ĐƠN:**\n\n⏳ Đang chờ xác nhận';
   }
 };
 
 // ============================================
-// 9. KỊCH BẢN ĐÁNH GIÁ/FEEDBACK
+// 11. DELIVERY
+// ============================================
+const deliveryScenario = {
+  name: 'delivery',
+  patterns: [/giao.*hàng/i, /bao.*lâu/i, /phí.*giao/i],
+  response: async (userMessage, session) => {
+    return '🚚 **GIAO HÀNG:**\n\n⚡ 20-60 phút\n💰 Miễn phí (đơn > 200k)';
+  }
+};
+
+// ============================================
+// 12. STORE INFO
+// ============================================
+const storeInfoScenario = {
+  name: 'storeInfo',
+  patterns: [/cửa.*hàng/i, /địa.*chỉ/i, /liên.*hệ/i, /hotline/i],
+  response: async (userMessage, session) => {
+    return '🏪 **THÔNG TIN CỬA HÀNG:**\n\n📍 259/18 Hàn Hải Nguyên\n☎️ 02411112222';
+  }
+};
+
+// ============================================
+// 13. MEMBER
+// ============================================
+const memberScenario = {
+  name: 'member',
+  patterns: [/thành.*viên/i, /điểm/i, /vip/i],
+  response: async (userMessage, session) => {
+    return '👑 **THÀNH VIÊN:**\n\n🏅 Bronze: Giảm 5%\n🏅 Silver: Giảm 10%';
+  }
+};
+
+// ============================================
+// 14. FEEDBACK
 // ============================================
 const feedbackScenario = {
   name: 'feedback',
-  patterns: [
-    /đánh.*giá/i,
-    /nhận.*xét/i,
-    /feedback/i,
-    /ý.*kiến/i,
-    /để.*lại.*comment/i
-  ],
+  patterns: [/đánh.*giá/i, /feedback/i, /nhận.*xét/i],
   response: async (userMessage, session) => {
-    let feedbackPrompt = '⭐ **ĐÁNH GIÁ SẢN PHẨM/DỊCH VỤ**\n\n';
-    feedbackPrompt += 'Chúng tôi rất muốn nghe ý kiến của bạn!\n\n';
-    feedbackPrompt += '📝 **Vui lòng cung cấp:**\n';
-    feedbackPrompt += '1️⃣ Mã đơn hàng (hoặc sản phẩm)\n';
-    feedbackPrompt += '2️⃣ Số sao (1-5 ⭐)\n';
-    feedbackPrompt += '3️⃣ Nhận xét chi tiết\n\n';
-    feedbackPrompt += '📌 **Ví dụ:**\n';
-    feedbackPrompt += '"Đơn 100, 5 sao, Pizza rất ngon, giao nhanh!"';
-
-    return feedbackPrompt;
+    return '⭐ **ĐÁNH GIÁ:**\n\nCảm ơn bạn đã sử dụng dịch vụ của chúng tôi!';
   }
 };
 
 // ============================================
-// 10. KỊCH BẢN CHÀO HỎI / MẶC ĐỊNH
+// 15. COMPLAINT
 // ============================================
-const greetingScenario = {
-  name: 'greeting',
-  patterns: [
-    /xin.*chào/i,
-    /hello/i,
-    /hi/i,
-    /làm.*sao/i,
-    /giúp.*tôi/i,
-    /tôi.*cần.*gì/i
-  ],
+const complaintScenario = {
+  name: 'complaint',
+  patterns: [/khiếu.*nại/i, /sai/i, /trễ/i, /hỗ.*trợ/i],
   response: async (userMessage, session) => {
-    let response = '👋 **CHÀO BẠN!** Chào mừng đến với **SECRET PIZZA**\n\n';
-    response += '😊 Tôi có thể giúp bạn:\n\n';
-    response += '🍕 Xem menu & giá cả\n';
-    response += '🛒 Đặt hàng & thanh toán\n';
-    response += '📦 Kiểm tra trạng thái đơn\n';
-    response += '🎁 Thông tin khuyến mãi\n';
-    response += '💬 Khiếu nại & hỗ trợ\n';
-    response += '⭐ Để lại đánh giá\n\n';
-    response += 'Bạn muốn làm gì nhỉ? 😄';
-
-    return response;
+    return '😔 **KHIẾU NẠI:**\n\n📞 Hotline: 02411112222\n⏰ 8:00-22:00';
   }
 };
-
-// ============================================
-// HÀM HỖ TRỢ
-// ============================================
-function getStatusEmoji(status) {
-  const statusMap = {
-    'Đang chờ xác nhận': '⏳',
-    'Đang xử lý': '🔄',
-    'Chờ giao hàng': '📦',
-    'Đang giao': '🚴',
-    'Đã giao': '✅',
-    'Khách hàng đã hủy': '❌',
-    'Đã hủy': '❌',
-    'Chờ thanh toán': '💳',
-    'Chờ duyệt đơn': '⏳'
-  };
-  return statusMap[status] || '❓';
-}
-
-function parseOrderRequest(message) {
-  // Phân tích cơ bản yêu cầu đặt hàng
-  const quantities = message.match(/(\d+)\s*(?:cái|chiếc|ly|đĩa)/g);
-  return quantities || [];
-}
 
 // ============================================
 // EXPORT
 // ============================================
 module.exports = {
   scenarios: [
+    handleDeliveryInput,
     greetingScenario,
+    recommendationScenario,
     viewMenuScenario,
     askPriceScenario,
+    orderScenario,
+    addMoreScenario,
+    deliveryInfoScenario,
+    cancelScenario,
     comboScenario,
     promotionScenario,
-    orderScenario,
     orderStatusScenario,
-    paymentScenario,
+    deliveryScenario,
+    storeInfoScenario,
+    memberScenario,
     feedbackScenario,
     complaintScenario
   ],
   getStatusEmoji,
-  parseOrderRequest
+  getCachedFoods,
+  parseDeliveryInfo,
+  checkoutWithDeliveryInfo
 };

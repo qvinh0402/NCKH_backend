@@ -14,6 +14,7 @@ class ChatbotService {
    * @returns {Promise<string>} - Phản hồi từ chatbot
    */
   async processMessage(userMessage, userId) {
+    const startTime = Date.now();
     try {
       // Lấy hoặc tạo session cho người dùng
       let session = this.userSessions.get(userId);
@@ -34,22 +35,27 @@ class ChatbotService {
       for (const scenario of this.scenarios) {
         for (const pattern of scenario.patterns) {
           if (pattern.test(normalizedMessage)) {
-            console.log(`[Chatbot] Matched: ${scenario.name}`);
+            const matchTime = Date.now();
+            console.log(`[✅ Chatbot] Matched: ${scenario.name} (${matchTime - startTime}ms)`);
             try {
-              const response = await scenario.response(userMessage, session);
+              const response = await scenario.response(normalizedMessage, session);
+              const responseTime = Date.now() - startTime;
+              console.log(`[✅ Response] ${scenario.name} (${responseTime}ms)`);
               return response;
             } catch (error) {
-              console.error(`[Chatbot] Error in ${scenario.name}:`, error);
-              return '❌ Có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại!';
+              console.error(`[❌ Chatbot] Error in ${scenario.name}:`, error);
+              return '❌ Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại!';
             }
           }
         }
       }
 
       // Nếu không tìm thấy scenario nào
+      const noMatchTime = Date.now() - startTime;
+      console.log(`[⚠️  Chatbot] No match for: "${normalizedMessage}" (${noMatchTime}ms)`);
       return this.getDefaultResponse();
     } catch (error) {
-      console.error('[ChatbotService] Error:', error);
+      console.error('[❌ ChatbotService] Error:', error);
       return '❌ Có lỗi xảy ra. Vui lòng thử lại sau.';
     }
   }
