@@ -34,7 +34,7 @@ async function getCachedFoods() {
       }
     });
     
-    // ĐIỂM CẦN SỬA: Thêm thuộc tính tenKhongDau ở đây
+    // Thêm thuộc tính tenKhongDau 
     foodCache.data = foods.map(f => ({
       ...f,
       tenKhongDau: removeAccents(f.TenMonAn) 
