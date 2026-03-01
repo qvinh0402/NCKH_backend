@@ -51,23 +51,31 @@ async function getCachedFoods() {
 // ============================================
 const cancelScenario = {
   name: 'cancel',
-  // patterns bao quát nhiều trường hợp khách gõ
-  patterns: [/hủy/i, /huy/i, /xóa/i, /xoa/i, /3️⃣/i, /^3$/i],
+  // Mở rộng patterns để nhận diện tốt hơn ý định của khách
+  patterns: [
+    /hủy/i, /huy/i, /xóa/i, /xoa/i, 
+    /hủy đơn/i, /huy don/i, /dọn giỏ/i, /don gio/i,
+    /3️⃣/i, /^3$/i
+  ],
   response: async (userMessage, session) => {
-    // Kiểm tra xem có đơn hàng để hủy không
-    if (!session.orderCart || session.orderCart.length === 0) {
-      return '❌ Hiện tại bạn chưa có sản phẩm nào trong giỏ hàng để hủy cả! 😊';
+    // 1. Kiểm tra xem giỏ hàng có dữ liệu hay không
+    const hasItems = session.orderCart && session.orderCart.length > 0;
+
+    if (!hasItems) {
+      return '❌ Giỏ hàng của bạn vốn đã trống rồi nè! Bạn có muốn xem Menu để chọn món không? 🍕';
     }
 
-    // Thực hiện xóa dữ liệu trong session
-    session.orderCart = [];
-    session.totalPrice = 0;
-    session.deliveryInfo = null; // Reset luôn thông tin giao hàng nếu có
-    session.awaitingDeliveryInfo = false;
+    // 2. Thực hiện "Deep Clean" - Xóa sạch mọi dữ liệu liên quan đến phiên đặt hàng hiện tại
+    session.orderCart = [];           // Xóa danh sách món
+    session.totalPrice = 0;           // Reset tổng tiền
+    session.deliveryInfo = null;      // Xóa thông tin giao hàng đã nhập
+    session.awaitingDeliveryInfo = false; // Tắt trạng thái chờ nhập thông tin
+    session.orderedAt = null;         // Reset thời gian (nếu có)
 
-    return '🗑️ **ĐÃ HỦY ĐƠN HÀNG THÀNH CÔNG!**\n\n' +
-           'Giỏ hàng của bạn đã được làm trống. 🧹\n' +
-           'Bạn có muốn xem lại menu để chọn món khác không? 🍕';
+    // 3. Phản hồi xác nhận rõ ràng cho khách hàng
+    return '🗑️ **XÁC NHẬN: ĐÃ HỦY GIỎ HÀNG THÀNH CÔNG!**\n\n' +
+           'Toàn bộ các món ăn đã được xóa khỏi hệ thống. Giỏ hàng của bạn hiện đang trống. 🧹\n\n' +
+           '👉 Bạn có thể gõ **"Menu"** hoặc **"Gợi ý"** để bắt đầu chọn món mới nhé! 😊';
   }
 };
 
