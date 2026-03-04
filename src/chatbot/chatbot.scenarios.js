@@ -211,7 +211,7 @@ function getStatusEmoji(status) {
 // ============================================
 const greetingScenario = {
   name: 'greeting',
-  patterns: [/xin.*chào/i, /hello/i, /hi/i, /làm.*sao/i, /giúp.*tôi/i],
+  patterns: [/xin.*chào/i, /hello/i, /hi/i, /làm.*sao/i, /giúp.*tôi/i, /xin.*chao/i],
   response: async (userMessage, session) => {
     return '👋 **CHÀO BẠN!** Chào mừng đến **SECRET PIZZA**\n\n' +
            '😊 Tôi có thể giúp bạn:\n\n' +
@@ -226,7 +226,7 @@ const greetingScenario = {
 // ============================================
 const viewMenuScenario = {
   name: 'viewMenu',
-  patterns: [/menu/i, /danh.*sách/i, /xem/i, /có.*gì/i],
+  patterns: [/menu/i, /danh.*sách/i, /xem/i, /có.*gì/i,],
   response: async (userMessage, session) => {
     try {
       const foods = await getCachedFoods();
