@@ -2,40 +2,92 @@
 // CHATBOT PERFORMANCE OPTIMIZATION
 // ============================================
 
+const DEFAULT_INACTIVE_TIMEOUT = 30 * 60 * 1000; // 30 phút
+const DEFAULT_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 phút
+
+let cleanupIntervalRef = null;
+
 /**
- * Session cleanup - Remove inactive sessions every 30 minutes
+ * Session cleanup
+ * Tự động xóa session không hoạt động
  */
-function setupSessionCleanup(userSessions) {
-  setInterval(() => {
+function setupSessionCleanup(
+  userSessions,
+  {
+    inactiveTimeout = DEFAULT_INACTIVE_TIMEOUT,
+    cleanupInterval = DEFAULT_CLEANUP_INTERVAL
+  } = {}
+) {
+  if (!userSessions || typeof userSessions.entries !== 'function') {
+    throw new Error('userSessions must be a Map');
+  }
+
+  // Tránh tạo nhiều interval nếu function bị gọi nhiều lần
+  if (cleanupIntervalRef) {
+    clearInterval(cleanupIntervalRef);
+  }
+
+  cleanupIntervalRef = setInterval(() => {
     const now = Date.now();
-    const inactiveTimeout = 30 * 60 * 1000; // 30 minutes
     let cleaned = 0;
 
     for (const [userId, session] of userSessions.entries()) {
-      if (now - session.lastActivity.getTime() > inactiveTimeout) {
+      if (
+        !session ||
+        !session.lastActivity ||
+        !(session.lastActivity instanceof Date)
+      ) {
+        userSessions.delete(userId);
+        cleaned++;
+        continue;
+      }
+
+      const inactiveTime = now - session.lastActivity.getTime();
+
+      if (inactiveTime > inactiveTimeout) {
         userSessions.delete(userId);
         cleaned++;
       }
     }
 
     if (cleaned > 0) {
-      console.log(`[Cleanup] Removed ${cleaned} inactive sessions`);
+      console.log(
+        `[SessionCleanup] Removed ${cleaned} inactive sessions | Remaining: ${userSessions.size}`
+      );
     }
-  }, 30 * 60 * 1000);
+  }, cleanupInterval);
+
+  return cleanupIntervalRef;
 }
 
 /**
- * Response time tracking middleware
+ * Stop cleanup manually (optional)
+ */
+function stopSessionCleanup() {
+  if (cleanupIntervalRef) {
+    clearInterval(cleanupIntervalRef);
+    cleanupIntervalRef = null;
+  }
+}
+
+/**
+ * Response time tracking middleware (High precision)
  */
 function trackResponseTime(req, res, next) {
-  const startTime = Date.now();
-  
+  const start = process.hrtime.bigint();
+
   res.on('finish', () => {
-    const duration = Date.now() - startTime;
-    if (duration > 1000) {
-      console.warn(`⚠️  Slow response: ${req.method} ${req.path} - ${duration}ms`);
+    const end = process.hrtime.bigint();
+    const durationMs = Number(end - start) / 1_000_000;
+
+    const logData = `${req.method} ${req.originalUrl} - ${durationMs.toFixed(
+      2
+    )}ms - ${res.statusCode}`;
+
+    if (durationMs > 1000) {
+      console.warn(`⚠️ Slow response: ${logData}`);
     } else {
-      console.log(`✅ Response: ${req.method} ${req.path} - ${duration}ms`);
+      console.log(`✅ ${logData}`);
     }
   });
 
@@ -46,14 +98,24 @@ function trackResponseTime(req, res, next) {
  * Message validation & sanitization
  */
 function sanitizeMessage(message) {
+  if (!message || typeof message !== 'string') {
+    return '';
+  }
+
   return message
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ\s?!]/g, '');
+    .normalize('NFC')
+    .replace(
+      /[^a-z0-9àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ\s?!.,]/g,
+      ''
+    )
+    .replace(/\s+/g, ' '); // loại bỏ khoảng trắng dư
 }
 
 module.exports = {
   setupSessionCleanup,
+  stopSessionCleanup,
   trackResponseTime,
   sanitizeMessage
 };

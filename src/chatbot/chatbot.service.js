@@ -1,114 +1,177 @@
 // Chatbot Service - Xử lý logic chính của chatbot
-const scenarios = require('./chatbot.scenarios');
+
+const { scenarios } = require('./chatbot.scenarios');
+const { sanitizeMessage } = require('./chatbot.optimization');
 
 class ChatbotService {
   constructor() {
-    this.scenarios = scenarios.scenarios;
-    this.userSessions = new Map(); // Lưu trữ session của người dùng
+    this.scenarios = Array.isArray(scenarios) ? scenarios : [];
+    this.userSessions = new Map();
   }
 
-  /**
-   * Xử lý tin nhắn từ khách hàng (PUBLIC)
-   * @param {string} userMessage - Tin nhắn từ khách hàng
-   * @param {string} userId - ID người dùng
-   * @returns {Promise<string>} - Phản hồi từ chatbot
-   */
-  async processMessage(userMessage, userId) {
-    const startTime = Date.now();
-    try {
-      // Lấy hoặc tạo session cho người dùng
-      let session = this.userSessions.get(userId);
-      if (!session) {
-        session = {
-          userId,
-          orderCart: [],
-          totalPrice: 0,
-          createdAt: new Date()
-        };
-        this.userSessions.set(userId, session);
-      }
+  // ============================================
+  // SESSION MANAGEMENT
+  // ============================================
 
-      // Chuẩn hóa tin nhắn
-      const normalizedMessage = userMessage.trim();
+  createSession(userId) {
+    const session = {
+      userId,
+      orderCart: [],
+      totalPrice: 0,
+      createdAt: new Date(),
+      lastActivity: new Date()
+    };
 
-      // Tìm scenario phù hợp
-      for (const scenario of this.scenarios) {
-        for (const pattern of scenario.patterns) {
-          if (pattern.test(normalizedMessage)) {
-            const matchTime = Date.now();
-            console.log(`[✅ Chatbot] Matched: ${scenario.name} (${matchTime - startTime}ms)`);
-            try {
-              const response = await scenario.response(normalizedMessage, session);
-              const responseTime = Date.now() - startTime;
-              console.log(`[✅ Response] ${scenario.name} (${responseTime}ms)`);
-              return response;
-            } catch (error) {
-              console.error(`[❌ Chatbot] Error in ${scenario.name}:`, error);
-              return '❌ Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại!';
-            }
-          }
-        }
-      }
+    this.userSessions.set(userId, session);
+    return session;
+  }
 
-      // Nếu không tìm thấy scenario nào
-      const noMatchTime = Date.now() - startTime;
-      console.log(`[⚠️  Chatbot] No match for: "${normalizedMessage}" (${noMatchTime}ms)`);
-      return this.getDefaultResponse();
-    } catch (error) {
-      console.error('[❌ ChatbotService] Error:', error);
-      return '❌ Có lỗi xảy ra. Vui lòng thử lại sau.';
+  getOrCreateSession(userId) {
+    let session = this.userSessions.get(userId);
+    if (!session) {
+      session = this.createSession(userId);
+    } else {
+      session.lastActivity = new Date();
     }
+    return session;
   }
 
-  /**
-   * Phản hồi mặc định khi không tìm thấy scenario phù hợp
-   */
-  getDefaultResponse() {
-    return `😊 **Xin lỗi, tôi chưa hiểu yêu cầu của bạn.**\n\n` +
-           `Tôi có thể giúp bạn với:\n` +
-           `🍕 Xem menu và giá cả\n` +
-           `🛒 Đặt hàng\n` +
-           `📦 Kiểm tra đơn hàng\n` +
-           `🎁 Khuyến mãi & voucher\n` +
-           `💬 Khiếu nại & hỗ trợ\n` +
-           `⭐ Đánh giá\n\n` +
-           `Bạn muốn làm gì? Hãy nói rõ hơn nhé! 😄`;
-  }
-
-  /**
-   * Lấy thông tin session của người dùng
-   */
   getSession(userId) {
     return this.userSessions.get(userId);
   }
 
-  /**
-   * Xóa session của người dùng
-   */
   clearSession(userId) {
     this.userSessions.delete(userId);
   }
 
-  /**
-   * Cập nhật session
-   */
-  updateSession(userId, data) {
+  updateSession(userId, data = {}) {
     const session = this.userSessions.get(userId);
-    if (session) {
-      Object.assign(session, data);
+    if (!session || typeof data !== 'object') return;
+
+    Object.assign(session, data);
+    session.lastActivity = new Date();
+  }
+
+  // ============================================
+  // MAIN MESSAGE PROCESSOR
+  // ============================================
+
+  async processMessage(userMessage, userId) {
+    const start = process.hrtime.bigint();
+
+    try {
+      if (!userMessage || typeof userMessage !== 'string') {
+        return '❌ Tin nhắn không hợp lệ.';
+      }
+
+      const session = this.getOrCreateSession(userId);
+      const normalizedMessage = sanitizeMessage(userMessage);
+
+      if (!normalizedMessage) {
+        return '❌ Tin nhắn không hợp lệ.';
+      }
+
+      const matchedScenario = this.findMatchingScenario(normalizedMessage);
+
+      if (!matchedScenario) {
+        this.logPerformance('No match', start);
+        return this.getDefaultResponse();
+      }
+
+      try {
+        const response = await matchedScenario.response(
+          normalizedMessage,
+          session
+        );
+
+        this.logPerformance(`Matched: ${matchedScenario.name}`, start);
+        return response;
+
+      } catch (scenarioError) {
+        console.error(
+          `[Scenario Error] ${matchedScenario.name}:`,
+          scenarioError
+        );
+
+        return '❌ Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn.';
+      }
+
+    } catch (error) {
+      console.error('[ChatbotService] Fatal Error:', error);
+      return '❌ Có lỗi xảy ra. Vui lòng thử lại sau.';
     }
   }
 
-  /**
-   * Liệt kê tất cả scenarios (dùng cho debug)
-   */
+  // ============================================
+  // SCENARIO MATCHING
+  // ============================================
+
+findMatchingScenario(message) {
+  for (const scenario of this.scenarios) {
+    if (!scenario.patterns || !Array.isArray(scenario.patterns)) continue;
+
+    for (const pattern of scenario.patterns) {
+
+      // RESET lastIndex nếu regex có g
+      if (pattern.global) {
+        pattern.lastIndex = 0;
+      }
+
+      if (pattern.test(message)) {
+        return scenario;
+      }
+    }
+  }
+  return null;
+}
+
+  // ============================================
+  // DEFAULT RESPONSE
+  // ============================================
+
+getDefaultResponse() {
+  const availableScenarios = this.scenarios
+    .filter(s => s.name) // đảm bảo có name
+    .map(s => `• ${s.name}`);
+
+  const suggestionList = availableScenarios.length > 0
+    ? availableScenarios.join('\n')
+    : 'Hiện chưa có chức năng khả dụng.';
+
+  return (
+    `😊 **Xin lỗi, tôi chưa hiểu yêu cầu của bạn.**\n\n` +
+    `Tôi có thể hỗ trợ bạn với các chức năng sau:\n\n` +
+    `${suggestionList}\n\n` +
+    `👉 Bạn muốn thực hiện chức năng nào? Hãy nhập rõ hơn nhé!`
+  );
+}
+
+  // ============================================
+  // DEBUG
+  // ============================================
+
   listScenarios() {
     return this.scenarios.map(s => ({
       name: s.name,
-      patterns: s.patterns.map(p => p.source),
-      patternCount: s.patterns.length
+      patterns: Array.isArray(s.patterns)
+        ? s.patterns.map(p => p.source)
+        : [],
+      patternCount: Array.isArray(s.patterns)
+        ? s.patterns.length
+        : 0
     }));
   }
-};
+
+  logPerformance(label, startTime) {
+    const end = process.hrtime.bigint();
+    const durationMs = Number(end - startTime) / 1_000_000;
+
+    if (durationMs > 1000) {
+      console.warn(`⚠️ ${label} - ${durationMs.toFixed(2)}ms`);
+    } else {
+      console.log(`✅ ${label} - ${durationMs.toFixed(2)}ms`);
+    }
+  }
+}
 
 module.exports = new ChatbotService();

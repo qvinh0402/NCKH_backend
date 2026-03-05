@@ -1,106 +1,135 @@
 // Chatbot Controller - Xử lý request từ client
 const chatbotService = require('./chatbot.service');
+const crypto = require('crypto');
 
 class ChatbotController {
   constructor() {
     this.chatbotService = chatbotService;
   }
 
-  /**
-   * POST /api/chatbot/message
-   * Gửi tin nhắn đến chatbot (PUBLIC)
-   */
+  // ================================
+  // Helpers
+  // ================================
+  generateGuestId() {
+    return `guest_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  }
+
+  generateOrderId() {
+    return `ORD_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+  }
+
+  // ================================
+  // POST /api/chatbot/message
+  // ================================
   async sendMessage(req, res) {
     try {
       const { message, userId } = req.body;
 
-      // Kiểm tra dữ liệu đầu vào
-      if (!message || !message.trim()) {
+      if (!message || typeof message !== 'string' || !message.trim()) {
         return res.status(400).json({
           success: false,
-          message: 'Tin nhắn không được để trống'
+          message: 'Tin nhắn không hợp lệ'
         });
       }
 
-      // Nếu không có userId, sinh một cái tạm thời
-      const finalUserId = userId || `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const finalUserId = userId && typeof userId === 'string'
+        ? userId
+        : this.generateGuestId();
 
-      console.log(`[ChatbotController] Message from ${finalUserId}: "${message}"`);
+      console.log(`[Chatbot] ${finalUserId}: ${message}`);
 
-      // Xử lý tin nhắn
-      const response = await chatbotService.processMessage(message, finalUserId);
+      const response = await this.chatbotService.processMessage(
+        message.trim(),
+        finalUserId
+      );
 
-      res.json({
+      return res.status(200).json({
         success: true,
-        message: response,
-        userId: finalUserId,
-        timestamp: new Date()
+        data: {
+          reply: response,
+          userId: finalUserId,
+          timestamp: new Date().toISOString()
+        }
       });
+
     } catch (error) {
-      console.error('[ChatbotController] Error:', error);
-      res.status(500).json({
+      console.error('[ChatbotController] sendMessage error:', error);
+
+      return res.status(500).json({
         success: false,
         message: 'Có lỗi xảy ra. Vui lòng thử lại sau.'
       });
     }
   }
 
-  /**
-   * GET /api/chatbot/session/:userId
-   * Lấy thông tin session (giỏ hàng) hiện tại (PUBLIC)
-   */
+  // ================================
+  // GET /api/chatbot/session/:userId
+  // ================================
   async getSession(req, res) {
     try {
       const { userId } = req.params;
 
-      if (!userId) {
+      if (!userId || typeof userId !== 'string') {
         return res.status(400).json({
           success: false,
-          message: 'Cần cung cấp userId'
+          message: 'userId không hợp lệ'
         });
       }
 
-      const session = chatbotService.getSession(userId);
+      const session = this.chatbotService.getSession(userId);
 
-      res.json({
+      return res.status(200).json({
         success: true,
-        session: session || { orderCart: [], totalPrice: 0 }
+        data: session || {
+          orderCart: [],
+          totalPrice: 0
+        }
       });
+
     } catch (error) {
-      console.error('[ChatbotController] Error:', error);
-      res.status(500).json({
+      console.error('[ChatbotController] getSession error:', error);
+
+      return res.status(500).json({
         success: false,
         message: 'Có lỗi xảy ra'
       });
     }
   }
 
-  /**
-   * DELETE /api/chatbot/session/:userId
-   * Xóa session (giỏ hàng)
-   */
+  // ================================
+  // DELETE /api/chatbot/session/:userId
+  // ================================
   async clearSession(req, res) {
     try {
       const { userId } = req.params;
-      chatbotService.clearSession(userId);
 
-      res.json({
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
+
+      this.chatbotService.clearSession(userId);
+
+      return res.status(200).json({
         success: true,
         message: 'Giỏ hàng đã được xóa'
       });
+
     } catch (error) {
-      console.error('[ChatbotController] Error:', error);
-      res.status(500).json({
+      console.error('[ChatbotController] clearSession error:', error);
+
+      return res.status(500).json({
         success: false,
         message: 'Có lỗi xảy ra.'
       });
     }
   }
 
-  /**
-   * POST /api/chatbot/checkout
-   * Thanh toán đơn hàng từ chatbot (PUBLIC)
-   */
+  // ================================
+  // POST /api/chatbot/checkout
+  // ================================
   async checkout(req, res) {
     try {
       const { userId, paymentMethod, deliveryAddress } = req.body;
@@ -112,31 +141,37 @@ class ChatbotController {
         });
       }
 
-      const session = chatbotService.getSession(userId);
+      const session = this.chatbotService.getSession(userId);
 
-      if (!session || session.orderCart.length === 0) {
+      if (!session || !session.orderCart || session.orderCart.length === 0) {
         return res.status(400).json({
           success: false,
           message: 'Giỏ hàng rỗng'
         });
       }
 
-      // Tạo mã đơn hàng
-      const orderId = `ORD_${Date.now()}`;
+      const orderId = this.generateOrderId();
 
-      res.json({
+      // TODO: Ở production nên lưu order vào DB tại đây
+
+      // Xóa session sau khi thanh toán thành công
+      this.chatbotService.clearSession(userId);
+
+      return res.status(200).json({
         success: true,
-        message: `✅ Đơn hàng #${orderId} đã được tạo thành công!`,
-        orderId,
-        total: session.totalPrice,
-        paymentMethod
+        data: {
+          orderId,
+          total: session.totalPrice,
+          paymentMethod,
+          deliveryAddress: deliveryAddress || null
+        },
+        message: `Đơn hàng #${orderId} đã được tạo thành công`
       });
 
-      // Xóa session sau khi thanh toán
-      chatbotService.clearSession(userId);
     } catch (error) {
-      console.error('[ChatbotController] Checkout Error:', error);
-      res.status(500).json({
+      console.error('[ChatbotController] checkout error:', error);
+
+      return res.status(500).json({
         success: false,
         message: 'Có lỗi xảy ra trong quá trình thanh toán.'
       });
