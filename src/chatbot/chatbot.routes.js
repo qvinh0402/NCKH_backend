@@ -3,7 +3,7 @@
 const express = require('express');
 const chatbotController = require('./chatbot.controller');
 const { scenarios } = require('./chatbot.scenarios');
-const { trackResponseTime } = require('./chatbot.optimization');
+const optimization = require('./chatbot.optimization');
 
 const router = express.Router();
 
@@ -11,7 +11,15 @@ const router = express.Router();
 // GLOBAL MIDDLEWARE
 // ============================================
 
-router.use(trackResponseTime);
+// Kiểm tra middleware có tồn tại không để tránh crash
+if (
+  optimization &&
+  typeof optimization.trackResponseTime === "function"
+) {
+  router.use(optimization.trackResponseTime);
+} else {
+  console.warn("[Chatbot] trackResponseTime middleware not found");
+}
 
 // ============================================
 // CHAT ENDPOINTS
@@ -45,7 +53,6 @@ router.delete(
 
 /**
  * POST /api/chatbot/checkout
- * Body: { userId: string, paymentMethod: string, deliveryAddress?: object }
  */
 router.post(
   '/checkout',
@@ -53,15 +60,12 @@ router.post(
 );
 
 // ============================================
-// DEBUG ROUTES (Đồng bộ với scenarios.js)
+// DEBUG ROUTES
 // ============================================
 
-/**
- * GET /api/chatbot/debug/scenarios
- * Liệt kê regex pattern của tất cả scenarios
- */
 router.get('/debug/scenarios', (req, res) => {
   try {
+
     const simplified = scenarios.map((s, index) => ({
       id: index + 1,
       patterns: s.patterns.map(p => p.toString())
@@ -74,6 +78,7 @@ router.get('/debug/scenarios', (req, res) => {
     });
 
   } catch (error) {
+
     console.error('[Chatbot Debug] Scenario Error:', error);
 
     res.status(500).json({
@@ -83,13 +88,10 @@ router.get('/debug/scenarios', (req, res) => {
   }
 });
 
-/**
- * POST /api/chatbot/debug/test
- * Test nhanh 1 message không cần session
- * Body: { message: string }
- */
 router.post('/debug/test', async (req, res) => {
+
   try {
+
     const { message } = req.body;
 
     if (!message) {
@@ -100,8 +102,11 @@ router.post('/debug/test', async (req, res) => {
     }
 
     for (const scenario of scenarios) {
+
       if (scenario.patterns.some(pattern => pattern.test(message))) {
+
         const response = await scenario.response(message);
+
         return res.json({
           success: true,
           matched: true,
@@ -117,6 +122,7 @@ router.post('/debug/test', async (req, res) => {
     });
 
   } catch (error) {
+
     console.error('[Chatbot Debug] Test Error:', error);
 
     res.status(500).json({

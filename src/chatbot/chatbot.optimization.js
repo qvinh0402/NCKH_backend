@@ -2,15 +2,15 @@
 // CHATBOT PERFORMANCE OPTIMIZATION
 // ============================================
 
-const DEFAULT_INACTIVE_TIMEOUT = 30 * 60 * 1000; // 30 phút
-const DEFAULT_CLEANUP_INTERVAL = 30 * 60 * 1000; // 30 phút
+const DEFAULT_INACTIVE_TIMEOUT = 30 * 60 * 1000;
+const DEFAULT_CLEANUP_INTERVAL = 30 * 60 * 1000;
 
 let cleanupIntervalRef = null;
 
-/**
- * Session cleanup
- * Tự động xóa session không hoạt động
- */
+// ============================================
+// SESSION CLEANUP
+// ============================================
+
 function setupSessionCleanup(
   userSessions,
   {
@@ -22,7 +22,6 @@ function setupSessionCleanup(
     throw new Error('userSessions must be a Map');
   }
 
-  // Tránh tạo nhiều interval nếu function bị gọi nhiều lần
   if (cleanupIntervalRef) {
     clearInterval(cleanupIntervalRef);
   }
@@ -32,11 +31,7 @@ function setupSessionCleanup(
     let cleaned = 0;
 
     for (const [userId, session] of userSessions.entries()) {
-      if (
-        !session ||
-        !session.lastActivity ||
-        !(session.lastActivity instanceof Date)
-      ) {
+      if (!session || !session.lastActivity) {
         userSessions.delete(userId);
         cleaned++;
         continue;
@@ -55,67 +50,53 @@ function setupSessionCleanup(
         `[SessionCleanup] Removed ${cleaned} inactive sessions | Remaining: ${userSessions.size}`
       );
     }
+
   }, cleanupInterval);
 
   return cleanupIntervalRef;
 }
 
-/**
- * Stop cleanup manually (optional)
- */
-function stopSessionCleanup() {
-  if (cleanupIntervalRef) {
-    clearInterval(cleanupIntervalRef);
-    cleanupIntervalRef = null;
-  }
+// ============================================
+// REMOVE VIETNAMESE ACCENTS
+// ============================================
+
+function removeVietnameseTones(str) {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
 }
 
-/**
- * Response time tracking middleware (High precision)
- */
-function trackResponseTime(req, res, next) {
-  const start = process.hrtime.bigint();
+// ============================================
+// SANITIZE MESSAGE
+// ============================================
 
-  res.on('finish', () => {
-    const end = process.hrtime.bigint();
-    const durationMs = Number(end - start) / 1_000_000;
-
-    const logData = `${req.method} ${req.originalUrl} - ${durationMs.toFixed(
-      2
-    )}ms - ${res.statusCode}`;
-
-    if (durationMs > 1000) {
-      console.warn(`⚠️ Slow response: ${logData}`);
-    } else {
-      console.log(`✅ ${logData}`);
-    }
-  });
-
-  next();
-}
-
-/**
- * Message validation & sanitization
- */
 function sanitizeMessage(message) {
+
   if (!message || typeof message !== 'string') {
     return '';
   }
 
-  return message
+  let cleaned = message
     .trim()
-    .toLowerCase()
-    .normalize('NFC')
-    .replace(
-      /[^a-z0-9àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ\s?!.,]/g,
-      ''
-    )
-    .replace(/\s+/g, ' '); // loại bỏ khoảng trắng dư
+    .toLowerCase();
+
+  // bỏ dấu tiếng Việt
+  cleaned = removeVietnameseTones(cleaned);
+
+  // loại bỏ ký tự đặc biệt
+  cleaned = cleaned.replace(/[^a-z0-9\s?!.,]/g, '');
+
+  // remove extra space
+  cleaned = cleaned.replace(/\s+/g, ' ');
+
+  return cleaned;
 }
+
+// ============================================
 
 module.exports = {
   setupSessionCleanup,
-  stopSessionCleanup,
-  trackResponseTime,
   sanitizeMessage
 };
