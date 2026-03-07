@@ -429,7 +429,10 @@ Cảm ơn bạn đã chia sẻ trải nghiệm với **Secret Pizza ❤️**
       /đánh giá đơn hàng/i,
       /danh gia don hang/i,
       /review đơn/i,
-      /review don/i
+      /review don/i,
+      /huong dan danh gia don/i,
+      /review don/i,
+      /cach danh gia don/i
     ],
 
     response: async () => {
@@ -437,26 +440,44 @@ Cảm ơn bạn đã chia sẻ trải nghiệm với **Secret Pizza ❤️**
       return `
 HƯỚNG DẪN ĐÁNH GIÁ ĐƠN HÀNG
 
-Sau khi nhận được đơn hàng bạn có thể gửi đánh giá cho hệ thống.
+Bạn có thể đánh giá đơn hàng sau khi đơn đã được giao thành công.
 
-Cú pháp:
+Các bước thực hiện:
 
-"Đánh giá đơn 12345 5 sao"
+Bước 1  
+Truy cập trang **Đơn hàng** trên thanh menu.
 
-Ví dụ:
+Bước 2  
+Tại danh sách đơn hàng của bạn, tìm đơn cần đánh giá.
 
-Đánh giá đơn 10234 5 sao  
-Đánh giá đơn 10234: Pizza rất ngon
+Điều kiện:
+Đơn phải có trạng thái **Đã giao**.
 
-Thông tin hệ thống sẽ ghi nhận:
+Bước 3  
+Nhấn nút **"Đánh giá"** ở bên phải đơn hàng.
 
-• Mã đơn hàng  
-• Số sao đánh giá  
-• Nội dung nhận xét
+Bước 4  
+Hệ thống sẽ hiển thị cửa sổ **Đánh giá đơn hàng**.
 
-Phản hồi của bạn giúp chúng tôi cải thiện chất lượng dịch vụ.
+Bạn cần nhập:
 
-Cảm ơn bạn đã sử dụng Secret Pizza ❤️
+⭐ **Số sao đánh giá (1 - 5 sao)**  
+✏️ **Bình luận về trải nghiệm của bạn**
+
+Ví dụ bình luận:
+- "Ngon, shipper giao nhanh"
+- "Thức ăn nóng và rất ngon"
+- "Pizza ngon nhưng giao hơi chậm"
+
+Bước 5  
+Nhấn **Gửi đánh giá** để hoàn tất.
+
+Sau khi gửi thành công:
+
+• Hệ thống sẽ hiển thị thông báo **"Cảm ơn bạn đã đánh giá!"**  
+• Nút **Đánh giá** sẽ chuyển thành **Đã đánh giá**
+
+Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
 ` + getSuggestions();
 
     }
