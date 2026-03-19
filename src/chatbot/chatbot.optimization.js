@@ -96,7 +96,19 @@ function sanitizeMessage(message) {
 
 // ============================================
 
+function trackResponseTime(req, res, next) {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[Chatbot] ${req.method} ${req.originalUrl} - ${duration}ms`);
+  });
+
+  next();
+}
+
 module.exports = {
   setupSessionCleanup,
-  sanitizeMessage
+  sanitizeMessage,
+  trackResponseTime
 };
