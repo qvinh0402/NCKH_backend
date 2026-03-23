@@ -178,23 +178,87 @@ class ChatbotController {
     }
   }
 
+  // ================================
+  // GET /api/chatbot/history/:userId
+  // Lấy lịch sử chat (chỉ cho user đã đăng nhập)
+  // ================================
   async getHistory(req, res) {
     try {
       const { userId } = req.params;
 
-    const history = this.chatbotService.getHistory(userId);
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
 
-    return res.json({
-      success: true,
-      data: history
-    });
+      // Kiểm tra user phải đăng nhập (không phải guest)
+      if (userId.startsWith('guest')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ user đã đăng nhập mới có thể xem lịch sử chat'
+        });
+      }
 
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: 'Lỗi lấy lịch sử'
-    });
+      const history = this.chatbotService.getHistory(userId);
+
+      return res.json({
+        success: true,
+        data: history,
+        meta: {
+          total: history.length,
+          ttl: '24h'
+        }
+      });
+
+    } catch (err) {
+      console.error('[ChatbotController] getHistory error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi lấy lịch sử'
+      });
+    }
   }
- }
+
+  // ================================
+  // DELETE /api/chatbot/history/:userId
+  // Xóa lịch sử chat (chỉ cho user đã đăng nhập)
+  // ================================
+  async clearHistory(req, res) {
+    try {
+      const { userId } = req.params;
+
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
+
+      // Kiểm tra user phải đăng nhập (không phải guest)
+      if (userId.startsWith('guest')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ user đã đăng nhập mới có thể xóa lịch sử chat'
+        });
+      }
+
+      this.chatbotService.clearHistory(userId);
+
+      return res.json({
+        success: true,
+        message: 'Lịch sử chat đã được xóa'
+      });
+
+    } catch (err) {
+      console.error('[ChatbotController] clearHistory error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi xóa lịch sử'
+      });
+    }
+  }
 }
+
 module.exports = new ChatbotController();

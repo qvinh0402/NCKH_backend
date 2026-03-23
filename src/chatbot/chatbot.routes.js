@@ -36,12 +36,23 @@ router.post(
 );
 
 /**
- * GET /api/chatbot/session/:userId
+ * GET /api/chatbot/history/:userId
+ * Lấy lịch sử chat (chỉ cho user đã đăng nhập, cache 24h)
  */
 router.get(
   '/history/:userId',
   chatbotController.getHistory.bind(chatbotController)
 );
+
+/**
+ * DELETE /api/chatbot/history/:userId
+ * Xóa lịch sử chat (chỉ cho user đã đăng nhập)
+ */
+router.delete(
+  '/history/:userId',
+  chatbotController.clearHistory.bind(chatbotController)
+);
+
 /**
  * DELETE /api/chatbot/session/:userId
  */
