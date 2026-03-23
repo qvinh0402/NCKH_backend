@@ -177,6 +177,24 @@ class ChatbotController {
       });
     }
   }
-}
 
+  async getHistory(req, res) {
+    try {
+      const { userId } = req.params;
+
+    const history = this.chatbotService.getHistory(userId);
+
+    return res.json({
+      success: true,
+      data: history
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi lấy lịch sử'
+    });
+  }
+ }
+}
 module.exports = new ChatbotController();

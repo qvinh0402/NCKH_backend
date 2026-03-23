@@ -39,10 +39,9 @@ router.post(
  * GET /api/chatbot/session/:userId
  */
 router.get(
-  '/session/:userId',
-  chatbotController.getSession.bind(chatbotController)
+  '/history/:userId',
+  chatbotController.getHistory.bind(chatbotController)
 );
-
 /**
  * DELETE /api/chatbot/session/:userId
  */

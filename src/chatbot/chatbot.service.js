@@ -6,7 +6,19 @@ const { sanitizeMessage } = require('./chatbot.optimization');
 class ChatbotService {
   constructor() {
     this.scenarios = Array.isArray(scenarios) ? scenarios : [];
+
+    // session (giỏ hàng)
     this.userSessions = new Map();
+
+    // lịch sử chat
+    this.chatHistory = new Map();
+
+    // config
+    this.HISTORY_TTL = 24 * 60 * 60 * 1000; // 24h
+    this.MAX_HISTORY = 100;
+
+    // auto cleanup mỗi 1h
+    this.startHistoryCleanup();
   }
 
   // ============================================
@@ -53,6 +65,70 @@ class ChatbotService {
   }
 
   // ============================================
+  // 🧠 CHAT HISTORY
+  // ============================================
+
+  isValidUser(userId) {
+    return userId && typeof userId === 'string' && !userId.startsWith('guest');
+  }
+
+  saveMessage(userId, message) {
+    // ❌ không lưu nếu chưa login
+    if (!this.isValidUser(userId)) return;
+
+    if (!this.chatHistory.has(userId)) {
+      this.chatHistory.set(userId, []);
+    }
+
+    const history = this.chatHistory.get(userId);
+
+    history.push({
+      ...message,
+      timestamp: new Date()
+    });
+
+    // giới hạn số lượng tin
+    if (history.length > this.MAX_HISTORY) {
+      history.shift();
+    }
+  }
+
+  getHistory(userId) {
+    if (!this.isValidUser(userId)) return [];
+
+    const history = this.chatHistory.get(userId) || [];
+    const now = Date.now();
+
+    return history.filter(m => {
+      return now - new Date(m.timestamp).getTime() < this.HISTORY_TTL;
+    });
+  }
+
+  clearHistory(userId) {
+    this.chatHistory.delete(userId);
+  }
+
+  startHistoryCleanup() {
+    setInterval(() => {
+      const now = Date.now();
+
+      for (const [userId, messages] of this.chatHistory.entries()) {
+        const filtered = messages.filter(m => {
+          return now - new Date(m.timestamp).getTime() < this.HISTORY_TTL;
+        });
+
+        if (filtered.length === 0) {
+          this.chatHistory.delete(userId);
+        } else {
+          this.chatHistory.set(userId, filtered);
+        }
+      }
+
+      console.log('[HistoryCleanup] Done');
+    }, 60 * 60 * 1000); // mỗi 1h
+  }
+
+  // ============================================
   // MAIN MESSAGE PROCESSOR
   // ============================================
 
@@ -71,30 +147,45 @@ class ChatbotService {
         return '❌ Tin nhắn không hợp lệ.';
       }
 
+      // ✅ lưu user message
+      this.saveMessage(userId, {
+        from: 'user',
+        text: userMessage
+      });
+
       const matchedScenario = this.findMatchingScenario(normalizedMessage);
+
+      let response;
 
       if (!matchedScenario) {
         this.logPerformance('No match', start);
-        return this.getDefaultResponse();
+        response = this.getDefaultResponse();
+      } else {
+        try {
+          response = await matchedScenario.response(
+            normalizedMessage,
+            session
+          );
+
+          this.logPerformance(`Matched: ${matchedScenario.name}`, start);
+
+        } catch (scenarioError) {
+          console.error(
+            `[Scenario Error] ${matchedScenario.name}:`,
+            scenarioError
+          );
+
+          response = '❌ Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn.';
+        }
       }
 
-      try {
-        const response = await matchedScenario.response(
-          normalizedMessage,
-          session
-        );
+      // ✅ lưu bot reply
+      this.saveMessage(userId, {
+        from: 'bot',
+        text: response
+      });
 
-        this.logPerformance(`Matched: ${matchedScenario.name}`, start);
-        return response;
-
-      } catch (scenarioError) {
-        console.error(
-          `[Scenario Error] ${matchedScenario.name}:`,
-          scenarioError
-        );
-
-        return '❌ Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn.';
-      }
+      return response;
 
     } catch (error) {
       console.error('[ChatbotService] Fatal Error:', error);
@@ -106,45 +197,44 @@ class ChatbotService {
   // SCENARIO MATCHING
   // ============================================
 
-findMatchingScenario(message) {
-  for (const scenario of this.scenarios) {
-    if (!scenario.patterns || !Array.isArray(scenario.patterns)) continue;
+  findMatchingScenario(message) {
+    for (const scenario of this.scenarios) {
+      if (!scenario.patterns || !Array.isArray(scenario.patterns)) continue;
 
-    for (const pattern of scenario.patterns) {
+      for (const pattern of scenario.patterns) {
 
-      // RESET lastIndex nếu regex có g
-      if (pattern.global) {
-        pattern.lastIndex = 0;
-      }
+        if (pattern.global) {
+          pattern.lastIndex = 0;
+        }
 
-      if (pattern.test(message)) {
-        return scenario;
+        if (pattern.test(message)) {
+          return scenario;
+        }
       }
     }
+    return null;
   }
-  return null;
-}
 
   // ============================================
   // DEFAULT RESPONSE
   // ============================================
 
-getDefaultResponse() {
-  const availableScenarios = this.scenarios
-    .filter(s => s.name) // đảm bảo có name
-    .map(s => `• ${s.name}`);
+  getDefaultResponse() {
+    const availableScenarios = this.scenarios
+      .filter(s => s.name)
+      .map(s => `• ${s.name}`);
 
-  const suggestionList = availableScenarios.length > 0
-    ? availableScenarios.join('\n')
-    : 'Hiện chưa có chức năng khả dụng.';
+    const suggestionList = availableScenarios.length > 0
+      ? availableScenarios.join('\n')
+      : 'Hiện chưa có chức năng khả dụng.';
 
-  return (
-    `😊 **Xin lỗi, tôi chưa hiểu yêu cầu của bạn.**\n\n` +
-    `Tôi có thể hỗ trợ bạn với các chức năng sau:\n\n` +
-    `${suggestionList}\n\n` +
-    `👉 Bạn muốn thực hiện chức năng nào? Hãy nhập rõ hơn nhé!`
-  );
-}
+    return (
+      `😊 **Xin lỗi, tôi chưa hiểu yêu cầu của bạn.**\n\n` +
+      `Tôi có thể hỗ trợ bạn với các chức năng sau:\n\n` +
+      `${suggestionList}\n\n` +
+      `👉 Bạn muốn thực hiện chức năng nào? Hãy nhập rõ hơn nhé!`
+    );
+  }
 
   // ============================================
   // DEBUG
