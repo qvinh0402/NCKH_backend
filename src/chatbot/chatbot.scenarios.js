@@ -28,6 +28,25 @@ function formatPrice(price) {
 }
 
 // =============================
+// HELPER: XỬ LÝ TEXT (KHÔNG DẤU)
+// =============================
+function removeVietnameseTones(str) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+}
+
+function normalizeText(str) {
+  return removeVietnameseTones(str)
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// =============================
 // SCENARIOS
 // =============================
 const scenarios = [
