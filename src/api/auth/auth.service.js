@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const repo = require('./auth.repository');
+const { generateToken } = require('../middleware/auth.middleware');
 
 async function register({ email, hoTen, matKhau, soDienThoai }) {
   if (!email || !hoTen || !matKhau) {
@@ -27,8 +28,8 @@ async function register({ email, hoTen, matKhau, soDienThoai }) {
     soDienThoai,
   });
 
-  // Return user info without password
-  return {
+  // Build user data
+  const userData = {
     maTaiKhoan: taiKhoan.MaTaiKhoan,
     email: taiKhoan.Email,
     role: taiKhoan.Role,
@@ -39,6 +40,14 @@ async function register({ email, hoTen, matKhau, soDienThoai }) {
     phuongXa: nguoiDung.PhuongXa,
     quanHuyen: nguoiDung.QuanHuyen,
     thanhPho: nguoiDung.ThanhPho,
+  };
+
+  // Generate JWT token
+  const token = generateToken(userData);
+
+  return {
+    user: userData,
+    token
   };
 }
 
@@ -65,8 +74,8 @@ async function login({ email, matKhau }) {
     throw e;
   }
 
-  // Return user info without password
-  return {
+  // Build user data
+  const userData = {
     maTaiKhoan: user.MaTaiKhoan,
     email: user.Email,
     role: user.Role,
@@ -77,6 +86,14 @@ async function login({ email, matKhau }) {
     phuongXa: user.NguoiDung?.PhuongXa,
     quanHuyen: user.NguoiDung?.QuanHuyen,
     thanhPho: user.NguoiDung?.ThanhPho,
+  };
+
+  // Generate JWT token
+  const token = generateToken(userData);
+
+  return {
+    user: userData,
+    token
   };
 }
 
@@ -114,8 +131,8 @@ async function adminLogin({ email, matKhau }) {
   // Build permissions based on role
   const permissions = getPermissionsByRole(role);
 
-  // Return user info with permissions
-  return {
+  // Build user data
+  const userData = {
     maTaiKhoan: user.MaTaiKhoan,
     maCoSo: user.NguoiDung?.MaCoSo || null,
     email: user.Email,
@@ -128,6 +145,48 @@ async function adminLogin({ email, matKhau }) {
     quanHuyen: user.NguoiDung?.QuanHuyen,
     thanhPho: user.NguoiDung?.ThanhPho,
     permissions,
+  };
+
+  // Generate JWT token
+  const token = generateToken(userData);
+
+  return {
+    user: userData,
+    token
+  };
+}
+
+/**
+ * Kiểm tra token và trả về thông tin user
+ */
+async function checkAuth(token) {
+  const { verifyToken } = require('../middleware/auth.middleware');
+  const decoded = verifyToken(token);
+  
+  if (!decoded) {
+    const e = new Error('Token không hợp lệ hoặc đã hết hạn');
+    e.status = 401;
+    throw e;
+  }
+
+  // Kiểm tra user vẫn tồn tại trong DB
+  const user = await repo.findUserByEmail(decoded.email);
+  if (!user) {
+    const e = new Error('Tài khoản không tồn tại');
+    e.status = 401;
+    throw e;
+  }
+
+  return {
+    user: {
+      maTaiKhoan: user.MaTaiKhoan,
+      email: user.Email,
+      role: user.Role,
+      maNguoiDung: user.NguoiDung?.MaNguoiDung,
+      hoTen: user.NguoiDung?.HoTen,
+      soDienThoai: user.NguoiDung?.SoDienThoai,
+    },
+    decoded
   };
 }
 
@@ -152,7 +211,7 @@ function getPermissionsByRole(role) {
         'Quản lý thể loại',
         'Quản lý danh mục',
         'Quản lý đơn hàng',
-        'Quản lý người dùng',
+        'Quản lý ngườii dùng',
         'Quản lý tùy chọn',
         'Quản lý đánh giá món ăn',
         'Quản lý đánh giá đơn hàng',
@@ -172,4 +231,5 @@ module.exports = {
   register,
   login,
   adminLogin,
+  checkAuth,
 };
