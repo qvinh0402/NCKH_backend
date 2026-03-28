@@ -4,6 +4,7 @@ const express = require('express');
 const chatbotController = require('./chatbot.controller');
 const { scenarios } = require('./chatbot.scenarios');
 const optimization = require('./chatbot.optimization');
+const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -22,50 +23,66 @@ if (
 }
 
 // ============================================
-// CHAT ENDPOINTS
+// CHAT ENDPOINTS - PUBLIC
 // ============================================
 
 /**
  * POST /api/chatbot/message
- * Gửi tin nhắn đến chatbot
+ * Gửi tin nhắn đến chatbot - Không cần đăng nhập
  * Body: { message: string, userId?: string }
  */
 router.post(
   '/message',
+  optionalAuth, // Cho phép cả guest và user đăng nhập
   chatbotController.sendMessage.bind(chatbotController)
 );
 
+// ============================================
+// CHAT HISTORY ENDPOINTS - PROTECTED (Cần đăng nhập)
+// ============================================
+
 /**
  * GET /api/chatbot/history/:userId
- * Lấy lịch sử chat (chỉ cho user đã đăng nhập, cache 24h)
+ * Lấy lịch sử chat - YÊU CẦU ĐĂNG NHẬP
+ * Cache 24h trên server
  */
 router.get(
   '/history/:userId',
+  authenticateToken, // Bắt buộc đăng nhập
   chatbotController.getHistory.bind(chatbotController)
 );
 
 /**
  * DELETE /api/chatbot/history/:userId
- * Xóa lịch sử chat (chỉ cho user đã đăng nhập)
+ * Xóa lịch sử chat - YÊU CẦU ĐĂNG NHẬP
  */
 router.delete(
   '/history/:userId',
+  authenticateToken, // Bắt buộc đăng nhập
   chatbotController.clearHistory.bind(chatbotController)
 );
 
+// ============================================
+// SESSION ENDPOINTS
+// ============================================
+
 /**
  * DELETE /api/chatbot/session/:userId
+ * Xóa session (giỏ hàng)
  */
 router.delete(
   '/session/:userId',
+  optionalAuth,
   chatbotController.clearSession.bind(chatbotController)
 );
 
 /**
  * POST /api/chatbot/checkout
+ * Thanh toán
  */
 router.post(
   '/checkout',
+  optionalAuth,
   chatbotController.checkout.bind(chatbotController)
 );
 
