@@ -4,7 +4,7 @@ const express = require('express');
 const chatbotController = require('./chatbot.controller');
 const { scenarios } = require('./chatbot.scenarios');
 const optimization = require('./chatbot.optimization');
-const { authenticateToken, optionalAuth } = require('../middleware/auth.middleware');
+const { authenticateToken, optionalAuth } = require('../api/auth/middleware/auth.middleware');
 
 const router = express.Router();
 

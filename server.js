@@ -32,8 +32,20 @@ const app = express();
 // --- CẤU HÌNH MIDDLEWARE ---
 app.use(cors());
 
-// Cho phép server đọc và xử lý dữ liệu dạng JSON trong body của request
-app.use(express.json());
+// ✅ Sửa lỗi Express v5: thêm urlencoded TRƯỚC json, và cả 2 đều cần có
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));
+
+// Debug middleware - kiểm tra request (có thể xóa sau khi test xong)
+app.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PUT') {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Body:', req.body);
+  }
+  next();
+});
+
 app.use(express.static('public'));
 
 // --- ĐỊNH NGHĨA CÁC API ROUTES ---
@@ -44,7 +56,6 @@ app.get('/api/health', (req, res) => {
 
 // Sử dụng routes đã tách riêng
 app.use('/api/auth', authRoutes);
-
 app.use('/api/categories', categoryRoutes);
 app.use('/api/types', typeRoutes);
 app.use('/api/foods', foodRoutes);
@@ -66,9 +77,22 @@ app.use('/api/gifts', giftRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 
+// --- ERROR HANDLING ---
+// Xử lý lỗi 404
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: 'Route không tồn tại' });
+});
+
+// Xử lý lỗi chung
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Lỗi server nội bộ'
+  });
+});
 
 // --- KHỞI ĐỘNG SERVER ---
-// Lấy PORT từ biến môi trường (do Render cung cấp) hoặc dùng 3001 khi chạy local
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {

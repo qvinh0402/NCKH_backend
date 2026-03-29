@@ -1,6 +1,8 @@
 const bcrypt = require('bcrypt');
 const repo = require('./auth.repository');
-const { generateToken } = require('../middleware/auth.middleware');
+
+// ✅ Sửa lỗi: Thêm destructuring để lấy generateToken
+const { generateToken } = require('./middleware/auth.middleware');
 
 async function register({ email, hoTen, matKhau, soDienThoai }) {
   if (!email || !hoTen || !matKhau) {
@@ -160,7 +162,8 @@ async function adminLogin({ email, matKhau }) {
  * Kiểm tra token và trả về thông tin user
  */
 async function checkAuth(token) {
-  const { verifyToken } = require('../middleware/auth.middleware');
+  // ✅ Sửa lỗi: Thêm destructuring để lấy verifyToken
+  const { verifyToken } = require('./middleware/auth.middleware');
   const decoded = verifyToken(token);
   
   if (!decoded) {
