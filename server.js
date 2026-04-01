@@ -1,4 +1,5 @@
 // --- IMPORT CÁC THƯ VIỆN CẦN THIẾT ---
+const axios = require('axios');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -76,6 +77,53 @@ app.use('/api/options', optionRoutes);
 app.use('/api/gifts', giftRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+
+// ==============================
+// 🌍 LOCATION API (FIX CORS)
+// ==============================
+
+// Lấy danh sách tỉnh/thành
+app.get('/api/location/provinces', async (req, res) => {
+  try {
+    const r = await axios.get('https://provinces.open-api.vn/api/p/');
+    res.json(r.data);
+  } catch (err) {
+    console.error('Provinces error:', err.message);
+    res.status(500).json({ message: 'Lỗi lấy tỉnh/thành' });
+  }
+});
+
+// Lấy quận/huyện theo tỉnh
+app.get('/api/location/districts', async (req, res) => {
+  try {
+    const { p } = req.query;
+
+    const r = await axios.get(
+      `https://provinces.open-api.vn/api/p/${p}?depth=2`
+    );
+
+    res.json(r.data.districts || []);
+  } catch (err) {
+    console.error('Districts error:', err.message);
+    res.status(500).json({ message: 'Lỗi lấy quận/huyện' });
+  }
+});
+
+// Lấy phường/xã theo quận
+app.get('/api/location/wards', async (req, res) => {
+  try {
+    const { d } = req.query;
+
+    const r = await axios.get(
+      `https://provinces.open-api.vn/api/d/${d}?depth=2`
+    );
+
+    res.json(r.data.wards || []);
+  } catch (err) {
+    console.error('Wards error:', err.message);
+    res.status(500).json({ message: 'Lỗi lấy phường/xã' });
+  }
+});
 
 // --- ERROR HANDLING ---
 // Xử lý lỗi 404

@@ -4,6 +4,7 @@ const { URL } = require('url');
 function httpsGetJson(urlStr) {
   return new Promise((resolve, reject) => {
     const url = new URL(urlStr);
+
     const req = https.get(
       {
         hostname: url.hostname,
@@ -16,7 +17,9 @@ function httpsGetJson(urlStr) {
       },
       (res) => {
         let data = '';
+
         res.on('data', (chunk) => (data += chunk));
+
         res.on('end', () => {
           try {
             const json = JSON.parse(data);
@@ -27,27 +30,59 @@ function httpsGetJson(urlStr) {
         });
       }
     );
+
     req.on('error', reject);
     req.end();
   });
 }
 
-// Geocode an address string with Goong Geocode API
+// ==============================
+// 🌍 Geocode Address (FIX FULL)
+// ==============================
 async function geocodeAddress(address, apiKey) {
   if (!apiKey) throw new Error('Missing MAPS_API_KEY');
-  const endpoint = `https://rsapi.goong.io/Geocode?address=${encodeURIComponent(address)}&api_key=${encodeURIComponent(apiKey)}`;
+
+  // ✅ FIX: thêm region=vn để tăng độ chính xác
+  const endpoint = `https://rsapi.goong.io/Geocode?address=${encodeURIComponent(address)}&region=vn&api_key=${encodeURIComponent(apiKey)}`;
+
   const json = await httpsGetJson(endpoint);
-  const results = json && (json.results || json.predictions || []);
+
+  // ✅ DEBUG: xem full response
+  console.log('🌍 Goong raw response:', JSON.stringify(json, null, 2));
+
+  const results = json?.results;
+
   if (!results || results.length === 0) {
     return null;
   }
-  // Goong returns results[i].geometry.location { lat, lng }
+
   const first = results[0];
-  const loc = first.geometry && (first.geometry.location || first.geometry.location_raw || first.geometry);
-  if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') {
+
+  let lat = null;
+  let lng = null;
+
+  // ✅ Case 1: chuẩn (phổ biến nhất)
+  if (first.geometry?.location) {
+    lat = first.geometry.location.lat;
+    lng = first.geometry.location.lng;
+  }
+
+  // ✅ Case 2: fallback (một số response khác)
+  else if (first.geometry?.lat && first.geometry?.lng) {
+    lat = first.geometry.lat;
+    lng = first.geometry.lng;
+  }
+
+  // ❌ Không có tọa độ hợp lệ
+  if (typeof lat !== 'number' || typeof lng !== 'number') {
     return null;
   }
-  return { lat: loc.lat, lng: loc.lng, raw: first };
+
+  return {
+    lat,
+    lng,
+    raw: first
+  };
 }
 
 module.exports = { geocodeAddress };
