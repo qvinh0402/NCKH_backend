@@ -2,67 +2,104 @@
 
 const sanitizeHtml = require('sanitize-html');
 
-// ✅ Model mới 2026
-const MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite'
-];
+// 🔥 API KEYS
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-// 🔑 Lấy API key
-function getApiKey() {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    throw new Error('GEMINI_API_KEY is not configured');
+// 🧠 MODELS (2026 OK)
+const GROQ_MODEL = 'llama-3.1-8b-instant';
+const OPENROUTER_MODEL = 'meta-llama/llama-3-8b-instruct:free';
+
+// ===============================
+// 🧠 CALL GROQ (MAIN)
+// ===============================
+async function callGroq(prompt) {
+  if (!GROQ_API_KEY) throw new Error('NO_GROQ_KEY');
+
+  console.log('[AI] Trying Groq...');
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.warn('[AI] Groq failed:', data);
+    throw new Error('GROQ_FAILED');
   }
-  return key;
+
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('EMPTY_GROQ');
+
+  console.log('[AI] Groq success');
+  return text;
 }
 
-// 🧠 Gọi Gemini API (v1 + fallback model)
-async function callGemini(prompt, apiKey) {
-  let lastError;
+// ===============================
+// 🧠 CALL OPENROUTER (BACKUP)
+// ===============================
+async function callOpenRouter(prompt) {
+  if (!OPENROUTER_API_KEY) throw new Error('NO_OPENROUTER_KEY');
 
-  for (const model of MODELS) {
+  console.log('[AI] Trying OpenRouter...');
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.warn('[AI] OpenRouter failed:', data);
+    throw new Error('OPENROUTER_FAILED');
+  }
+
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('EMPTY_OPENROUTER');
+
+  console.log('[AI] OpenRouter success');
+  return text;
+}
+
+// ===============================
+// 🧠 CALL AI (MULTI PROVIDER)
+// ===============================
+async function callAI(prompt) {
+  try {
+    return await callGroq(prompt);
+  } catch (err1) {
+    console.warn('[AI] Groq failed → fallback OpenRouter');
+
     try {
-      console.log(`[AI] Trying model: ${model}`);
-
-      const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
-
-      console.log('[AI] URL:', url);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.warn(`[AI] Model ${model} failed`);
-        console.warn(JSON.stringify(data, null, 2));
-        lastError = data;
-        continue;
-      }
-
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!text) throw new Error('Empty response');
-
-      console.log(`[AI] Success with model: ${model}`);
-      return text;
-
-    } catch (err) {
-      lastError = err;
+      return await callOpenRouter(prompt);
+    } catch (err2) {
+      console.error('[AI] All AI failed');
+      throw new Error('ALL_AI_FAILED');
     }
   }
-
-  console.error('[AI] All models failed:', lastError);
-  throw new Error('All Gemini models failed');
 }
 
-// 🧹 Parse JSON an toàn
+// ===============================
+// 🧹 SAFE JSON PARSE
+// ===============================
 function safeParseJSON(text) {
   try {
     let cleaned = text
@@ -82,10 +119,10 @@ function safeParseJSON(text) {
   }
 }
 
-// 🧠 PHÂN TÍCH REVIEW
+// ===============================
+// 🧠 ANALYZE REVIEW
+// ===============================
 async function analyzeReview(rating, comment) {
-  const apiKey = getApiKey();
-
   const prompt = `
 Analyze the following food delivery review.
 
@@ -94,8 +131,8 @@ Comment: "${comment || ''}"
 
 IMPORTANT:
 - Return ONLY pure JSON
-- Do NOT include markdown or explanation
-- Do NOT wrap in \`\`\`
+- No markdown
+- No explanation
 
 Format:
 {
@@ -112,79 +149,94 @@ Format:
   try {
     console.log('[AI] Analyze review...');
 
-    let text = await callGemini(prompt, apiKey);
+    let text = await callAI(prompt);
     let parsed = safeParseJSON(text);
 
-    // 🔁 retry nếu parse fail
     if (!parsed) {
-      console.warn('[AI] Retry with stricter prompt...');
-      const retryPrompt = prompt + '\nREMEMBER: ONLY JSON.';
-      text = await callGemini(retryPrompt, apiKey);
+      console.warn('[AI] Retry...');
+      text = await callAI(prompt + '\nONLY JSON.');
       parsed = safeParseJSON(text);
     }
 
-    if (!parsed) {
-      throw new Error('Failed to parse AI response');
-    }
+    if (!parsed) throw new Error('PARSE_FAILED');
 
-    console.log('[AI] Parsed result:', parsed);
     return parsed;
 
   } catch (err) {
-    console.error('[AI] analyzeReview FAILED:', err.message);
+    console.warn('[AI] Using fallbackAnalysis');
     return fallbackAnalysis(rating, comment);
   }
 }
 
-// 🛟 FALLBACK khi AI fail
+// ===============================
+// 🛟 FALLBACK LOCAL
+// ===============================
 function fallbackAnalysis(rating, comment) {
   const text = (comment || '').toLowerCase();
 
   return {
     Sentiment: rating >= 4 ? 'Positive' : rating <= 2 ? 'Negative' : 'Neutral',
     Severity: rating <= 2 ? 'Medium' : null,
-    FoodIssue: text.includes('ngon') || text.includes('dở') ? comment : null,
+    FoodIssue: text.includes('nguội') || text.includes('dở') ? comment : null,
     DriverIssue: text.includes('shipper') || text.includes('giao') ? comment : null,
-    StoreIssue: text.includes('quán') || text.includes('cửa hàng') ? comment : null,
+    StoreIssue: text.includes('quán') ? comment : null,
     OtherIssue: null,
     MentionLate: text.includes('trễ') || text.includes('muộn')
   };
 }
 
-// 📊 SUMMARY TUẦN
+// ===============================
+// ✂️ TRIM SUMMARY (chống dài)
+// ===============================
+function trimSummary(html) {
+  const maxLength = 400;
+  return html.length > maxLength ? html.slice(0, maxLength) + '...' : html;
+}
+
+// ===============================
+// 📊 SUMMARY (FIX NGẮN GỌN)
+// ===============================
 async function summarizeWeeklyIssues(data) {
-  const apiKey = getApiKey();
-
   const prompt = `
-Dựa trên dữ liệu đánh giá sau, hãy viết báo cáo ngắn gọn bằng tiếng Việt:
+Dựa trên dữ liệu đánh giá, hãy viết báo cáo NGẮN GỌN bằng tiếng Việt.
 
-- Tổng đánh giá: ${data.totalReviews}
+Dữ liệu:
+- Tổng: ${data.totalReviews}
 - Sentiment: ${JSON.stringify(data.sentiment)}
 - Issues: ${JSON.stringify(data.issues)}
 
-Yêu cầu:
-- Viết HTML (<h4>, <ul>, <li>, <p>)
-- Đưa ra 3 đề xuất cải thiện rõ ràng
-- Không dùng markdown
+YÊU CẦU:
+- KHÔNG lặp lại số liệu
+- Chỉ nêu insight quan trọng
+- Tối đa 1-2 dòng mô tả
+- Tối đa 2 đề xuất
+- Ngắn gọn, dễ đọc
+
+FORMAT HTML:
+<h4>Nhận định</h4>
+<p>...</p>
+
+<h4>Đề xuất</h4>
+<ul>
+  <li>...</li>
+  <li>...</li>
+</ul>
 `;
 
   try {
-    let text = await callGemini(prompt, apiKey);
+    let text = await callAI(prompt);
 
-    // 🧹 clean markdown nếu có
     text = text
       .replace(/```html/g, '')
       .replace(/```/g, '')
       .trim();
 
-    // 🔒 chống XSS
-    return sanitizeHtml(text, {
+    return sanitizeHtml(trimSummary(text), {
       allowedTags: ['h4', 'ul', 'li', 'p', 'b', 'strong']
     });
 
   } catch (err) {
-    console.error('[AI] Summary FAILED:', err.message);
-    return '<p>Không thể tạo phân tích AI.</p>';
+    return '<p>⚠️ AI tạm thời không khả dụng.</p>';
   }
 }
 
