@@ -197,22 +197,23 @@ function trimSummary(html) {
 // 📊 SUMMARY (FIX NGẮN GỌN)
 // ===============================
 async function summarizeWeeklyIssues(data) {
-  const prompt = `
-Dựa trên dữ liệu đánh giá, hãy viết báo cáo NGẮN GỌN bằng tiếng Việt.
+const prompt = `
+Viết báo cáo ngắn gọn (tiếng Việt) từ dữ liệu sau:
 
-Dữ liệu:
 - Tổng: ${data.totalReviews}
 - Sentiment: ${JSON.stringify(data.sentiment)}
 - Issues: ${JSON.stringify(data.issues)}
 
-YÊU CẦU:
-- KHÔNG lặp lại số liệu
-- Chỉ nêu insight quan trọng
-- Tối đa 1-2 dòng mô tả
-- Tối đa 2 đề xuất
-- Ngắn gọn, dễ đọc
+Yêu cầu:
+- Không lặp lại số liệu
+- Chỉ nêu insight chính
+- Nhận định: 1-2 câu hoàn chỉnh
+- Đề xuất: tối đa 2 ý, mỗi ý là câu đầy đủ
+- Viết câu hoàn chỉnh, không rút gọn
+- Không sử dụng dấu "..."
 
-FORMAT HTML:
+Trả về HTML:
+
 <h4>Nhận định</h4>
 <p>...</p>
 
