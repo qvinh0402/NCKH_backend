@@ -63,6 +63,30 @@ router.delete(
 );
 
 // ============================================
+// CONVERSATIONS ENDPOINTS - PROTECTED (Cần đăng nhập)
+// ============================================
+
+/**
+ * GET /api/chatbot/conversations/:userId
+ * Lấy danh sách cuộc trò chuyện - YÊU CẦU ĐĂNG NHẬP
+ */
+router.get(
+  '/conversations/:userId',
+  authenticateToken,
+  chatbotController.getConversations.bind(chatbotController)
+);
+
+/**
+ * DELETE /api/chatbot/conversations/:conversationId
+ * Xóa cuộc trò chuyện - YÊU CẦU ĐĂNG NHẬP
+ */
+router.delete(
+  '/conversations/:conversationId',
+  authenticateToken,
+  chatbotController.deleteConversation.bind(chatbotController)
+);
+
+// ============================================
 // SESSION ENDPOINTS
 // ============================================
 

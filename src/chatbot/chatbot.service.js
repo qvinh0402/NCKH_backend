@@ -129,6 +129,83 @@ class ChatbotService {
   }
 
   // ============================================
+  // CONVERSATIONS MANAGEMENT
+  // ============================================
+
+  getConversations(userId) {
+    if (!this.isValidUser(userId)) return [];
+
+    const history = this.chatHistory.get(userId) || [];
+    
+    if (history.length === 0) return [];
+
+    // Nhóm tin nhắn thành các cuộc trò chuyện
+    // Mỗi cuộc trò chuyện được tách biệt nếu cách nhau > 5 phút
+    const conversations = [];
+    let currentConversation = [];
+    let lastTimestamp = null;
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 phút
+
+    for (const msg of history) {
+      const msgTime = new Date(msg.timestamp).getTime();
+
+      if (
+        lastTimestamp &&
+        msgTime - lastTimestamp > TIMEOUT_MS
+      ) {
+        // Tạo cuộc trò chuyện mới
+        if (currentConversation.length > 0) {
+          conversations.push({
+            id: `conv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+            messages: [...currentConversation],
+            preview: this.getConversationPreview(currentConversation),
+            timestamp: currentConversation[0].timestamp,
+            messageCount: currentConversation.length
+          });
+        }
+        currentConversation = [];
+      }
+
+      currentConversation.push(msg);
+      lastTimestamp = msgTime;
+    }
+
+    // Thêm cuộc trò chuyện cuối cùng
+    if (currentConversation.length > 0) {
+      conversations.push({
+        id: `conv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        messages: [...currentConversation],
+        preview: this.getConversationPreview(currentConversation),
+        timestamp: currentConversation[0].timestamp,
+        messageCount: currentConversation.length
+      });
+    }
+
+    // Sắp xếp theo thời gian mới nhất đầu
+    return conversations.sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+    );
+  }
+
+  getConversationPreview(messages) {
+    if (messages.length === 0) return 'Cuộc trò chuyện';
+
+    // Lấy tin nhắn đầu tiên của user
+    const userMsg = messages.find(m => m.from === 'user');
+    if (!userMsg) return 'Cuộc trò chuyện';
+
+    const preview = userMsg.text.slice(0, 50);
+    return preview.length < userMsg.text.length ? preview + '...' : preview;
+  }
+
+  deleteConversation(conversationId) {
+    // Note: Trong thực tế cần lưu conversations vào DB
+    // Hiện tại chỉ hỗ trợ cấu trúc này, cần mở rộng
+    console.warn('[ChatbotService] deleteConversation: Cần implement lưu DB');
+    return true;
+  }
+
+  // ============================================
   // MAIN MESSAGE PROCESSOR
   // ============================================
 

@@ -259,6 +259,86 @@ class ChatbotController {
       });
     }
   }
+
+  // ================================
+  // GET /api/chatbot/conversations/:userId
+  // Lấy danh sách các cuộc trò chuyện cũ
+  // ================================
+  async getConversations(req, res) {
+    try {
+      const { userId } = req.params;
+
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
+
+      // Kiểm tra user phải đăng nhập (không phải guest)
+      if (userId.startsWith('guest')) {
+        return res.status(403).json({
+          success: false,
+          message: 'Chỉ user đã đăng nhập mới có thể xem lịch sử cuộc trò chuyện'
+        });
+      }
+
+      const conversations = this.chatbotService.getConversations(userId);
+
+      return res.json({
+        success: true,
+        data: conversations,
+        meta: {
+          total: conversations.length
+        }
+      });
+
+    } catch (err) {
+      console.error('[ChatbotController] getConversations error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi lấy danh sách cuộc trò chuyện'
+      });
+    }
+  }
+
+  // ================================
+  // DELETE /api/chatbot/conversations/:conversationId
+  // Xóa một cuộc trò chuyện cụ thể
+  // ================================
+  async deleteConversation(req, res) {
+    try {
+      const { conversationId } = req.params;
+
+      if (!conversationId || typeof conversationId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'conversationId không hợp lệ'
+        });
+      }
+
+      const success = this.chatbotService.deleteConversation(conversationId);
+
+      if (!success) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy cuộc trò chuyện'
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Cuộc trò chuyện đã được xóa'
+      });
+
+    } catch (err) {
+      console.error('[ChatbotController] deleteConversation error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi xóa cuộc trò chuyện'
+      });
+    }
+  }
 }
 
 module.exports = new ChatbotController();
