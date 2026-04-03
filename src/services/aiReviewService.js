@@ -6,9 +6,9 @@ const sanitizeHtml = require('sanitize-html');
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-// 🧠 MODELS (2026 OK)
-const GROQ_MODEL = 'llama-3.1-8b-instant';
-const OPENROUTER_MODEL = 'meta-llama/llama-3-8b-instruct:free';
+// 🧠 MODELS (2026 - UPGRADED)
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const OPENROUTER_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
 
 // ===============================
 // 🧠 CALL GROQ (MAIN)
@@ -27,7 +27,9 @@ async function callGroq(prompt) {
     body: JSON.stringify({
       model: GROQ_MODEL,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2
+      temperature: 0.7,
+      top_p: 0.9,
+      max_tokens: 1024
     })
   });
 
@@ -124,37 +126,38 @@ function safeParseJSON(text) {
 // ===============================
 async function analyzeReview(rating, comment) {
   const prompt = `
-Analyze the following food delivery review.
+Phân tích chi tiết nhận xét khách hàng về dịch vụ giao hàng thực phẩm.
 
 Rating: ${rating}/5
-Comment: "${comment || ''}"
+Nhận xét: "${comment || '(không có nhận xét)'}"
 
-IMPORTANT:
-- Return ONLY pure JSON
-- No markdown
-- No explanation
+HƯỚNG DẪN:
+- Trả về JSON thuần, không markdown hay giải thích
+- Phân tích tâm lý: khách hàng muốn nói gì thực sự?
+- Xác định vấn đề gốc rễ, không chỉ triệu chứng
 
-Format:
+JSON format (bắt buộc):
 {
   "Sentiment": "Positive | Negative | Neutral",
   "Severity": "High | Medium | Low | null",
-  "FoodIssue": "string | null",
-  "DriverIssue": "string | null",
-  "StoreIssue": "string | null",
-  "OtherIssue": "string | null",
-  "MentionLate": true | false
+  "Root": "gốc rễ vấn đề chính (tiếng Việt) | null",
+  "FoodIssue": "chất lượng thức ăn | null",
+  "DriverIssue": "vấn đề shipper/giao hàng | null",
+  "StoreIssue": "vấn đề quán ăn | null",
+  "MentionLate": true | false,
+  "Suggestion": "đề xuất cải thiện 1-2 từ | null"
 }
 `;
 
   try {
-    console.log('[AI] Analyze review...');
+    console.log('[AI] Analyzing review...');
 
     let text = await callAI(prompt);
     let parsed = safeParseJSON(text);
 
     if (!parsed) {
-      console.warn('[AI] Retry...');
-      text = await callAI(prompt + '\nONLY JSON.');
+      console.warn('[AI] Retry with stricter format...');
+      text = await callAI(prompt + '\nRETURN ONLY VALID JSON.');
       parsed = safeParseJSON(text);
     }
 
@@ -163,7 +166,7 @@ Format:
     return parsed;
 
   } catch (err) {
-    console.warn('[AI] Using fallbackAnalysis');
+    console.warn('[AI] Using fallback analysis');
     return fallbackAnalysis(rating, comment);
   }
 }
@@ -198,46 +201,63 @@ function trimSummary(html) {
 // ===============================
 async function summarizeWeeklyIssues(data) {
 const prompt = `
-Viết báo cáo ngắn gọn (tiếng Việt) từ dữ liệu sau:
+Bạn là nhà phân tích kinh doanh dịch vụ giao hàng thực phẩm với kinh nghiệm 10 năm.
+Hãy viết báo cáo điều hành (Executive Summary) dựa trên feedback khách hàng tuần này:
 
-- Tổng: ${data.totalReviews}
-- Sentiment: ${JSON.stringify(data.sentiment)}
-- Issues: ${JSON.stringify(data.issues)}
+📊 **DỮ LIỆU PHÂN TÍCH:**
+- Tổng phản hồi: ${data.totalReviews} khách
+- Cảm xúc: ${JSON.stringify(data.sentiment)} (Positive/Negative/Neutral)
+- Vấn đề chính: ${JSON.stringify(data.issues)}
 
-Yêu cầu:
-- Không lặp lại số liệu
-- Chỉ nêu insight chính
-- Nhận định: 1-2 câu hoàn chỉnh
-- Đề xuất: tối đa 2 ý, mỗi ý là câu đầy đủ
-- Viết câu hoàn chỉnh, không rút gọn
-- Không sử dụng dấu "..."
+📋 **YÊU CẦU VIẾT (tiếng Việt tự nhiên):**
 
-Trả về HTML:
+1. **📊 Nhận định tổng thể** (1-2 câu):
+   - Trạng thái chung: khách hàng có hài lòng không?
+   - Xu hướng: đang cải thiện hay xấu đi?
+   - Ví dụ: "Khách hàng hài lòng với chất lượng pizza, nhưng tốc độ giao hàng còn chậm"
 
-<h4>Nhận định</h4>
-<p>...</p>
+2. **💪 Điểm mạnh chính** (1 điểm):
+   - Cái gì khách yêu thích nhất?
 
-<h4>Đề xuất</h4>
-<ul>
-  <li>...</li>
-  <li>...</li>
-</ul>
+3. **⚠️ Thách thức lớn nhất** (1 vấn đề):
+   - Cái gì khách than phiền nhất?
+   - Tác động kinh tế: mất mấy % khách do vấn đề này?
+
+4. **✅ Hành động ưu tiên** (1 cách làm cụ thể):
+   - Giải pháp thực tiễn có thể thực hiện trong tuần này
+   - Ví dụ: "Tuyển thêm 3 shipper vào giờ cao điểm" hoặc "Kiểm tra chất lượng trước giao 100%"
+
+💡 **PHONG CÁCH VIẾT:**
+- Chuyên nghiệp, ngắn gọn, dễ hiểu
+- Tránh từ chung chung như "tăng cường", "cải thiện", "theo dõi"
+- Dùng con số khi có thể
+- Viết cho ban quản lý, không phải khách hàng
+
+📌 **ĐỊNH DẠNG HTML:**
+
+<div>
+  <p><strong>📊 Nhận định:</strong> [2-3 câu]</p>
+  <p><strong>💪 Mạnh:</strong> [1-2 câu]</p>
+  <p><strong>⚠️ Yếu:</strong> [1-2 câu]</p>
+  <p><strong>✅ Hành động:</strong> [1-2 câu cụ thể]</p>
+</div>
 `;
 
   try {
     let text = await callAI(prompt);
 
     text = text
-      .replace(/```html/g, '')
-      .replace(/```/g, '')
+      .replace(/\`\`\`html/g, '')
+      .replace(/\`\`\`/g, '')
       .trim();
 
     return sanitizeHtml(trimSummary(text), {
-      allowedTags: ['h4', 'ul', 'li', 'p', 'b', 'strong']
+      allowedTags: ['div', 'p', 'b', 'strong', 'em', 'i']
     });
 
   } catch (err) {
-    return '<p>⚠️ AI tạm thời không khả dụng.</p>';
+    console.error('[AI] Summary error:', err.message);
+    return '<div><p>⚠️ AI tạm thời không khả dụng. Vui lòng thử lại sau.</p></div>';
   }
 }
 
