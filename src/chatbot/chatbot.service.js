@@ -214,14 +214,14 @@ class ChatbotService {
 
     try {
       if (!userMessage || typeof userMessage !== 'string') {
-        return { reply: '❌ Tin nhắn không hợp lệ.', suggestions: [] };
+        return '❌ Tin nhắn không hợp lệ.';
       }
 
       const session = this.getOrCreateSession(userId);
       const normalizedMessage = sanitizeMessage(userMessage);
 
       if (!normalizedMessage) {
-        return { reply: '❌ Tin nhắn không hợp lệ.', suggestions: [] };
+        return '❌ Tin nhắn không hợp lệ.';
       }
 
       // ✅ lưu user message
@@ -233,12 +233,10 @@ class ChatbotService {
       const matchedScenario = this.findMatchingScenario(normalizedMessage);
 
       let response;
-      let suggestions = [];
 
       if (!matchedScenario) {
         this.logPerformance('No match', start);
         response = this.getDefaultResponse();
-        suggestions = this.getDefaultSuggestions();
       } else {
         try {
           response = await matchedScenario.response(
@@ -247,7 +245,6 @@ class ChatbotService {
           );
 
           this.logPerformance(`Matched: ${matchedScenario.name}`, start);
-          suggestions = this.extractSuggestions();
 
         } catch (scenarioError) {
           console.error(
@@ -256,7 +253,6 @@ class ChatbotService {
           );
 
           response = '❌ Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn.';
-          suggestions = this.getDefaultSuggestions();
         }
       }
 
@@ -266,11 +262,11 @@ class ChatbotService {
         text: response
       });
 
-      return { reply: response, suggestions };
+      return response;
 
     } catch (error) {
       console.error('[ChatbotService] Fatal Error:', error);
-      return { reply: '❌ Có lỗi xảy ra. Vui lòng thử lại sau.', suggestions: [] };
+      return '❌ Có lỗi xảy ra. Vui lòng thử lại sau.';
     }
   }
 
@@ -315,32 +311,6 @@ class ChatbotService {
       `${suggestionList}\n\n` +
       `👉 Bạn muốn thực hiện chức năng nào? Hãy nhập rõ hơn nhé!`
     );
-  }
-
-  // ============================================
-  // SUGGESTIONS HELPERS
-  // ============================================
-
-  getDefaultSuggestions() {
-    return [
-      'Xem món đắt nhất',
-      'Xem món rẻ nhất',
-      'Xem món bán chạy',
-      'Hướng dẫn đặt hàng',
-      'Cách kiểm tra đơn hàng',
-      'Hướng dẫn đánh giá món',
-      'Hướng dẫn đánh giá đơn hàng'
-    ];
-  }
-
-  extractSuggestions(reply = '') {
-    // Trích xuất suggestions từ reply hoặc trả về default
-    if (!reply || typeof reply !== 'string') {
-      return this.getDefaultSuggestions();
-    }
-
-    // Nếu reply chứa các scenario names, trả về default suggestions
-    return this.getDefaultSuggestions();
   }
 
   // ============================================
