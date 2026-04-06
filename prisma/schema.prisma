@@ -278,13 +278,15 @@ model Size {
 }
 
 model TaiKhoan {
-  MaTaiKhoan   Int            @id @default(autoincrement())
-  Email        String         @unique @db.VarChar(100)
-  MatKhau      String         @db.VarChar(255)
-  Role         String         @db.VarChar(50)
-  TrangThai    String         @default("Active") @db.VarChar(20)
-  DanhGiaMonAn DanhGiaMonAn[]
-  NguoiDung    NguoiDung?
+  MaTaiKhoan      Int                  @id @default(autoincrement())
+  Email           String               @unique @db.VarChar(100)
+  MatKhau         String               @db.VarChar(255)
+  Role            String               @db.VarChar(50)
+  TrangThai       String               @default("Active") @db.VarChar(20)
+  DanhGiaMonAn    DanhGiaMonAn[]
+  ChatHistory     ChatHistory[]
+  ChatConversation ChatConversation[]
+  NguoiDung       NguoiDung?
 }
 
 model ThanhToan {
@@ -366,4 +368,44 @@ model AI_ReviewAnalysis {
   RawJSON          Json?
   NgayPhanTich     DateTime?      @default(now()) @db.Timestamp(6)
   DanhGiaDonHang   DanhGiaDonHang @relation(fields: [MaDanhGiaDonHang], references: [MaDanhGiaDonHang], onDelete: Cascade, onUpdate: NoAction, map: "fk_review")
+}
+
+// ============================================
+// CHATBOT HISTORY - Lưu trữ lịch sử trò chuyện
+// ============================================
+model ChatHistory {
+  MaChatHistory   Int       @id @default(autoincrement())
+  MaTaiKhoan      Int       // User ID (chỉ lưu nếu đã đăng nhập)
+  LoaiTinNhan     String    @db.VarChar(10) // "user" hoặc "bot"
+  NoiDung         String    // Nội dung tin nhắn
+  ThoiGian        DateTime  @default(now()) @db.Timestamp(6) // Thời gian gửi
+  HetHan          DateTime  // Thời gian hết hạn (TTL 24h)
+  TrangThai       String    @default("Active") @db.VarChar(20) // Active/Deleted
+  TaiKhoan        TaiKhoan  @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade, onUpdate: NoAction)
+
+  // Indexes để tối ưu query
+  @@index([MaTaiKhoan])
+  @@index([ThoiGian])
+  @@index([HetHan])
+}
+
+// ============================================
+// CHATBOT CONVERSATION - Nhóm tin nhắn theo cuộc trò chuyện
+// ============================================
+model ChatConversation {
+  MaConversation  Int          @id @default(autoincrement())
+  MaTaiKhoan      Int          // User ID
+  TenConversation String?      @db.VarChar(255) // Tên cuộc trò chuyện (tùy chọn)
+  GhiChuDau       String?      // 50 ký tự đầu tiên của tin nhắn đầu tiên
+  NgayTao         DateTime     @default(now()) @db.Timestamp(6) // Ngày tạo cuộc trò chuyện
+  NgayCapNhat     DateTime     @default(now()) @db.Timestamp(6) // Lần cuối cập nhật
+  HetHan          DateTime     // Thời gian hết hạn (TTL 24h)
+  SoTinNhan       Int          @default(0) // Số tin nhắn trong cuộc
+  TrangThai       String       @default("Active") @db.VarChar(20) // Active/Deleted
+  TaiKhoan        TaiKhoan     @relation(fields: [MaTaiKhoan], references: [MaTaiKhoan], onDelete: Cascade, onUpdate: NoAction)
+
+  // Indexes
+  @@index([MaTaiKhoan])
+  @@index([NgayCapNhat])
+  @@index([HetHan])
 }
