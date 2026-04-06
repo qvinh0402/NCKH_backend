@@ -193,58 +193,71 @@ function fallbackAnalysis(rating, comment) {
 // ===============================
 async function summarizeWeeklyIssues(data) {
 const prompt = `
-Bạn là chuyên gia phân tích vận hành (Operations Analyst) trong lĩnh vực giao hàng thực phẩm, với hơn 10 năm kinh nghiệm.
-Nhiệm vụ của bạn là viết báo cáo Executive Summary cho quản lý cấp cao dựa trên dữ liệu feedback khách hàng.
+Bạn là chuyên gia tư vấn chiến lược (Strategy Consultant) trong ngành giao hàng thực phẩm, với kinh nghiệm phân tích dữ liệu vận hành và tối ưu trải nghiệm khách hàng.
+
+Nhiệm vụ: Viết Executive Summary mang tính phân tích sâu (insight-driven), giúp ban quản lý ra quyết định nhanh.
 
 ========================
 📊 DỮ LIỆU ĐẦU VÀO
 ========================
 - Tổng số phản hồi: ${data.totalReviews}
 - Phân bố cảm xúc: ${JSON.stringify(data.sentiment)}
-- Nhóm vấn đề chính: ${JSON.stringify(data.issues)}
+- Nhóm vấn đề: ${JSON.stringify(data.issues)}
 
 ========================
-📌 YÊU CẦU PHÂN TÍCH
+🧠 YÊU CẦU PHÂN TÍCH SÂU
 ========================
 
-1. 📊 NHẬN ĐỊNH TỔNG THỂ
-- Đánh giá mức độ hài lòng chung (tốt / trung bình / kém)
-- Xác định xu hướng chính (đang cải thiện hay suy giảm)
-- Nêu rõ insight quan trọng nhất (không mô tả lại dữ liệu)
+1. 📊 NHẬN ĐỊNH CHIẾN LƯỢC (KEY INSIGHT)
+- Không mô tả lại dữ liệu
+- Xác định insight quan trọng nhất (1 câu)
+- Trả lời: "Điều gì đang thực sự xảy ra?" (WHY)
+- Nếu có thể, suy luận xu hướng (tăng/giảm)
 
-2. 💪 ĐIỂM MẠNH NỔI BẬT
-- Xác định 1 yếu tố khách hàng đánh giá tích cực nhất
-- Giải thích vì sao đây là lợi thế cạnh tranh
+2. 🔍 PHÂN TÍCH NGUYÊN NHÂN GỐC (ROOT CAUSE)
+- Vấn đề chính đến từ đâu? (Food / Driver / Store / Late)
+- Liên hệ logic giữa các vấn đề (ví dụ: giao trễ → đồ ăn nguội → review xấu)
+- Không liệt kê — phải giải thích
 
-3. ⚠️ VẤN ĐỀ NGHIÊM TRỌNG NHẤT
-- Xác định 1 vấn đề có ảnh hưởng lớn nhất
-- Phân tích tác động: ảnh hưởng đến trải nghiệm hoặc doanh thu như thế nào
-- Nếu có thể, ước lượng tỷ lệ khách bị ảnh hưởng (%)
+3. ⚠️ ĐÁNH GIÁ TÁC ĐỘNG (BUSINESS IMPACT)
+- Vấn đề ảnh hưởng đến trải nghiệm như thế nào?
+- Ước lượng tỷ lệ khách bị ảnh hưởng (% nếu có thể suy luận)
+- Ưu tiên tác động đến:
+  + Tỷ lệ quay lại (retention)
+  + Đánh giá sao (rating)
+  + Doanh thu gián tiếp
 
-4. 🎯 HÀNH ĐỘNG ƯU TIÊN (QUAN TRỌNG NHẤT)
-- Đưa ra 1 hành động cụ thể, có thể triển khai ngay trong 7 ngày
-- Hành động phải rõ ràng, đo lường được (tránh chung chung)
-- Ưu tiên giải pháp có tác động trực tiếp đến vấn đề lớn nhất
+4. 💪 ĐIỂM TÍCH CỰC CÓ GIÁ TRỊ
+- Không chỉ nói "tốt"
+- Phải trả lời: tại sao đây là lợi thế cạnh tranh?
+
+5. 🎯 HÀNH ĐỘNG ƯU TIÊN (ACTIONABLE)
+- Đưa ra 1 hành động cụ thể nhất
+- Có thể triển khai trong 7 ngày
+- Có thể đo lường (KPI rõ ràng)
+- Ưu tiên xử lý nguyên nhân gốc, không chỉ triệu chứng
 
 ========================
 💡 NGUYÊN TẮC VIẾT
 ========================
-- Không lặp lại số liệu một cách máy móc
-- Không dùng từ mơ hồ: "cải thiện", "tăng cường", "nâng cao"
-- Viết ngắn gọn nhưng phải có insight (WHY + IMPACT)
-- Ưu tiên dùng số liệu (%) nếu suy luận được
-- Không dùng dấu "..." hoặc viết dở dang
-- Giọng văn chuyên nghiệp, dành cho quản lý (không phải khách hàng)
+- Viết như báo cáo cho CEO
+- Ngắn gọn nhưng phải có chiều sâu
+- Mỗi câu phải có giá trị (insight hoặc quyết định)
+- Không dùng từ chung chung: "cải thiện", "tăng cường"
+- Không dùng dấu "..."
+- Ưu tiên số liệu (%) nếu suy luận được
+- Không lặp lại dữ liệu đầu vào
 
 ========================
 📌 OUTPUT (HTML BẮT BUỘC)
 ========================
 
 <div>
-  <p><strong>📊 Nhận định:</strong> [2-3 câu có insight]</p>
-  <p><strong>💪 Điểm mạnh:</strong> [1-2 câu, có lý do]</p>
-  <p><strong>⚠️ Vấn đề:</strong> [1-2 câu, có tác động]</p>
-  <p><strong>🎯 Hành động:</strong> [1-2 câu, cụ thể + đo lường được]</p>
+  <p><strong>📊 Insight chính:</strong> [1-2 câu, trả lời WHY]</p>
+  <p><strong>🔍 Nguyên nhân:</strong> [1-2 câu logic cause-effect]</p>
+  <p><strong>⚠️ Tác động:</strong> [1-2 câu, có % hoặc ảnh hưởng kinh doanh]</p>
+  <p><strong>💪 Điểm mạnh:</strong> [1 câu có giá trị]</p>
+  <p><strong>🎯 Hành động:</strong> [1-2 câu, cụ thể + KPI]</p>
 </div>
 `;
 
