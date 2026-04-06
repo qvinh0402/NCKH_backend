@@ -202,7 +202,16 @@ class ChatbotController {
         });
       }
 
-      const history = this.chatbotService.getHistory(userId);
+      // userId từ params là string, chuyển thành number nếu cần
+      const userIdNum = parseInt(userId, 10);
+      if (isNaN(userIdNum)) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
+
+      const history = await this.chatbotService.getHistory(userIdNum);
 
       return res.json({
         success: true,
@@ -245,7 +254,16 @@ class ChatbotController {
         });
       }
 
-      this.chatbotService.clearHistory(userId);
+      // userId từ params là string, chuyển thành number
+      const userIdNum = parseInt(userId, 10);
+      if (isNaN(userIdNum)) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
+
+      await this.chatbotService.clearHistory(userIdNum);
 
       return res.json({
         success: true,
@@ -284,7 +302,16 @@ class ChatbotController {
         });
       }
 
-      const conversations = this.chatbotService.getConversations(userId);
+      // userId từ params là string, chuyển thành number
+      const userIdNum = parseInt(userId, 10);
+      if (isNaN(userIdNum)) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId không hợp lệ'
+        });
+      }
+
+      const conversations = await this.chatbotService.getConversations(userIdNum);
 
       return res.json({
         success: true,
@@ -311,14 +338,23 @@ class ChatbotController {
     try {
       const { conversationId } = req.params;
 
-      if (!conversationId || typeof conversationId !== 'string') {
+      if (!conversationId) {
         return res.status(400).json({
           success: false,
           message: 'conversationId không hợp lệ'
         });
       }
 
-      const success = this.chatbotService.deleteConversation(conversationId);
+      // conversationId từ params là string, chuyển thành number
+      const convIdNum = parseInt(conversationId, 10);
+      if (isNaN(convIdNum)) {
+        return res.status(400).json({
+          success: false,
+          message: 'conversationId không hợp lệ'
+        });
+      }
+
+      const success = await this.chatbotService.deleteConversation(convIdNum);
 
       if (!success) {
         return res.status(404).json({
