@@ -189,14 +189,6 @@ function fallbackAnalysis(rating, comment) {
 }
 
 // ===============================
-// ✂️ TRIM SUMMARY (chống dài)
-// ===============================
-function trimSummary(html) {
-  const maxLength = 400;
-  return html.length > maxLength ? html.slice(0, maxLength) + '...' : html;
-}
-
-// ===============================
 // 📊 SUMMARY (FIX NGẮN GỌN)
 // ===============================
 async function summarizeWeeklyIssues(data) {
@@ -251,7 +243,7 @@ Hãy viết báo cáo điều hành (Executive Summary) dựa trên feedback kh�
       .replace(/\`\`\`/g, '')
       .trim();
 
-    return sanitizeHtml(trimSummary(text), {
+    return sanitizeHtml(text, {
       allowedTags: ['div', 'p', 'b', 'strong', 'em', 'i']
     });
 
