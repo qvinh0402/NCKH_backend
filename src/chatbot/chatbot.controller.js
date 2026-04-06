@@ -38,7 +38,7 @@ class ChatbotController {
 
       console.log(`[Chatbot] ${finalUserId}: ${message}`);
 
-      const response = await this.chatbotService.processMessage(
+      const result = await this.chatbotService.processMessage(
         message.trim(),
         finalUserId
       );
@@ -46,7 +46,8 @@ class ChatbotController {
       return res.status(200).json({
         success: true,
         data: {
-          reply: response,
+          reply: result.reply || result,
+          suggestions: result.suggestions || [],
           userId: finalUserId,
           timestamp: new Date().toISOString()
         }
