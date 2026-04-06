@@ -193,45 +193,58 @@ function fallbackAnalysis(rating, comment) {
 // ===============================
 async function summarizeWeeklyIssues(data) {
 const prompt = `
-Bạn là nhà phân tích kinh doanh dịch vụ giao hàng thực phẩm với kinh nghiệm 10 năm.
-Hãy viết báo cáo điều hành (Executive Summary) dựa trên feedback khách hàng tuần này:
+Bạn là chuyên gia phân tích vận hành (Operations Analyst) trong lĩnh vực giao hàng thực phẩm, với hơn 10 năm kinh nghiệm.
+Nhiệm vụ của bạn là viết báo cáo Executive Summary cho quản lý cấp cao dựa trên dữ liệu feedback khách hàng.
 
-📊 **DỮ LIỆU PHÂN TÍCH:**
-- Tổng phản hồi: ${data.totalReviews} khách
-- Cảm xúc: ${JSON.stringify(data.sentiment)} (Positive/Negative/Neutral)
-- Vấn đề chính: ${JSON.stringify(data.issues)}
+========================
+📊 DỮ LIỆU ĐẦU VÀO
+========================
+- Tổng số phản hồi: ${data.totalReviews}
+- Phân bố cảm xúc: ${JSON.stringify(data.sentiment)}
+- Nhóm vấn đề chính: ${JSON.stringify(data.issues)}
 
-📋 **YÊU CẦU VIẾT (tiếng Việt tự nhiên):**
+========================
+📌 YÊU CẦU PHÂN TÍCH
+========================
 
-1. **📊 Nhận định tổng thể** (1-2 câu):
-   - Trạng thái chung: khách hàng có hài lòng không?
-   - Xu hướng: đang cải thiện hay xấu đi?
-   - Ví dụ: "Khách hàng hài lòng với chất lượng pizza, nhưng tốc độ giao hàng còn chậm"
+1. 📊 NHẬN ĐỊNH TỔNG THỂ
+- Đánh giá mức độ hài lòng chung (tốt / trung bình / kém)
+- Xác định xu hướng chính (đang cải thiện hay suy giảm)
+- Nêu rõ insight quan trọng nhất (không mô tả lại dữ liệu)
 
-2. **💪 Điểm mạnh chính** (1 điểm):
-   - Cái gì khách yêu thích nhất?
+2. 💪 ĐIỂM MẠNH NỔI BẬT
+- Xác định 1 yếu tố khách hàng đánh giá tích cực nhất
+- Giải thích vì sao đây là lợi thế cạnh tranh
 
-3. **⚠️ Thách thức lớn nhất** (1 vấn đề):
-   - Cái gì khách than phiền nhất?
-   - Tác động kinh tế: mất mấy % khách do vấn đề này?
+3. ⚠️ VẤN ĐỀ NGHIÊM TRỌNG NHẤT
+- Xác định 1 vấn đề có ảnh hưởng lớn nhất
+- Phân tích tác động: ảnh hưởng đến trải nghiệm hoặc doanh thu như thế nào
+- Nếu có thể, ước lượng tỷ lệ khách bị ảnh hưởng (%)
 
-4. **✅ Hành động ưu tiên** (1 cách làm cụ thể):
-   - Giải pháp thực tiễn có thể thực hiện trong tuần này
-   - Ví dụ: "Tuyển thêm 3 shipper vào giờ cao điểm" hoặc "Kiểm tra chất lượng trước giao 100%"
+4. 🎯 HÀNH ĐỘNG ƯU TIÊN (QUAN TRỌNG NHẤT)
+- Đưa ra 1 hành động cụ thể, có thể triển khai ngay trong 7 ngày
+- Hành động phải rõ ràng, đo lường được (tránh chung chung)
+- Ưu tiên giải pháp có tác động trực tiếp đến vấn đề lớn nhất
 
-💡 **PHONG CÁCH VIẾT:**
-- Chuyên nghiệp, ngắn gọn, dễ hiểu
-- Tránh từ chung chung như "tăng cường", "cải thiện", "theo dõi"
-- Dùng con số khi có thể
-- Viết cho ban quản lý, không phải khách hàng
+========================
+💡 NGUYÊN TẮC VIẾT
+========================
+- Không lặp lại số liệu một cách máy móc
+- Không dùng từ mơ hồ: "cải thiện", "tăng cường", "nâng cao"
+- Viết ngắn gọn nhưng phải có insight (WHY + IMPACT)
+- Ưu tiên dùng số liệu (%) nếu suy luận được
+- Không dùng dấu "..." hoặc viết dở dang
+- Giọng văn chuyên nghiệp, dành cho quản lý (không phải khách hàng)
 
-📌 **ĐỊNH DẠNG HTML:**
+========================
+📌 OUTPUT (HTML BẮT BUỘC)
+========================
 
 <div>
-  <p><strong>📊 Nhận định:</strong> [2-3 câu]</p>
-  <p><strong>💪 Mạnh:</strong> [1-2 câu]</p>
-  <p><strong>⚠️ Yếu:</strong> [1-2 câu]</p>
-  <p><strong>✅ Hành động:</strong> [1-2 câu cụ thể]</p>
+  <p><strong>📊 Nhận định:</strong> [2-3 câu có insight]</p>
+  <p><strong>💪 Điểm mạnh:</strong> [1-2 câu, có lý do]</p>
+  <p><strong>⚠️ Vấn đề:</strong> [1-2 câu, có tác động]</p>
+  <p><strong>🎯 Hành động:</strong> [1-2 câu, cụ thể + đo lường được]</p>
 </div>
 `;
 
