@@ -5,7 +5,7 @@
 -- Dumped from database version 17.5
 -- Dumped by pg_dump version 17.5
 
--- Started on 2025-12-02 07:05:57
+-- Started on 2025-12-16 12:55:24
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1008,12 +1008,8 @@ COPY public."AI_ReviewAnalysis" ("AnalysisID", "MaDanhGiaDonHang", "Sentiment", 
 --
 
 COPY public."BienTheMonAn" ("MaBienThe", "MaMonAn", "MaSize", "GiaBan", "TrangThai") FROM stdin;
-7	4	1	235000.00	Active
-8	4	2	325000.00	Active
 9	5	1	235000.00	Active
 10	5	2	325000.00	Active
-11	6	1	205000.00	Active
-12	6	2	295000.00	Active
 15	8	\N	49000.00	Active
 16	9	\N	20000.00	Active
 17	10	1	165000.00	Active
@@ -1025,12 +1021,16 @@ COPY public."BienTheMonAn" ("MaBienThe", "MaMonAn", "MaSize", "GiaBan", "TrangTh
 4	2	2	315000.00	Active
 5	3	1	245000.00	Active
 6	3	2	335000.00	Active
-2	1	2	325000.00	Inactive
-1	1	1	100000.00	Inactive
-22	1	\N	325000.00	Active
 14	7	2	305000.00	Inactive
 23	7	\N	215000.00	Inactive
 13	7	1	215000.00	Active
+11	6	1	205000.00	Inactive
+12	6	2	295000.00	Active
+7	4	1	235000.00	Inactive
+8	4	2	325000.00	Active
+2	1	2	325000.00	Inactive
+22	1	\N	325000.00	Inactive
+1	1	1	325000.00	Active
 \.
 
 
@@ -1114,6 +1114,9 @@ COPY public."ChiTietDonHang" ("MaChiTiet", "MaDonHang", "MaBienThe", "MaDeBanh",
 153	98	9	1	1	195000.00	195000.00	SP	\N
 154	99	1	1	1	60000.00	60000.00	SP	\N
 155	100	1	1	1	115000.00	115000.00	SP	\N
+156	101	11	1	1	205000.00	205000.00	SP	\N
+157	102	8	1	1	325000.00	325000.00	SP	\N
+158	103	8	1	1	325000.00	325000.00	SP	\N
 \.
 
 
@@ -1193,8 +1196,8 @@ COPY public."CoSo" ("MaCoSo", "TenCoSo", "SoDienThoai", "SoNhaDuong", "PhuongXa"
 
 COPY public."Combo" ("MaCombo", "TenCombo", "MoTa", "HinhAnh", "GiaCombo", "TrangThai", "NgayTao", "NgayCapNhat", "ThoiGianHetHan") FROM stdin;
 2	Mừng ngày nhà giáo Việt Nam	Mừng 20/11	/images/AnhMonAn/z7209813005248-b44ed8cf695a25f3d3b306fc3d01e9f8-1763442636972-393041786.jpg	500000.00	Deleted	2025-11-18 05:10:36.99	2025-11-18 05:19:35.276	2999-12-31 23:59:59
-1	Combo Thịt Thượng Hạng	Combo cực hấp dẫn gồm Pizza 5 Loại Thịt Thượng Hạng size 9", Mì Ý Sốt Kem, Khoai Tây Chiên và 2 lon Pepsi tươi mát.	/images/AnhCombo/1.jpg	325000.00	Active	2025-11-07 17:48:05.199599	2025-11-07 17:48:05.199599	2025-11-30 23:59:59
 3	Nhà giáo Việt Nam 20/11	Mừng lễ 20/11	/images/AnhCombo/combo-z7209813005248-b44ed8cf695a25f3d3b306fc3d01e9f8-1763443685353-581470982.jpg	500000.00	Active	2025-11-18 05:28:05.365	2025-11-18 05:36:18.598	2025-11-20 23:59:59
+1	Combo Thịt Thượng Hạng	Combo cực hấp dẫn gồm Pizza 5 Loại Thịt Thượng Hạng size 9", Mì Ý Sốt Kem, Khoai Tây Chiên và 2 lon Pepsi tươi mát.	/images/AnhCombo/1.jpg	325000.00	Active	2025-11-07 17:48:05.199599	2025-12-02 04:17:04.682	2025-12-03 09:59:00
 \.
 
 
@@ -1205,10 +1208,12 @@ COPY public."Combo" ("MaCombo", "TenCombo", "MoTa", "HinhAnh", "GiaCombo", "Tran
 --
 
 COPY public."Combo_ChiTiet" ("MaCTCombo", "MaCombo", "MaBienThe", "SoLuong", "MaDeBanh") FROM stdin;
-1	1	17	1	1
-2	1	1	1	2
 9	3	2	1	1
 10	3	7	1	1
+13	1	17	1	1
+14	1	1	1	2
+15	1	16	1	\N
+16	1	15	1	\N
 \.
 
 
@@ -1273,6 +1278,7 @@ COPY public."DanhMuc" ("MaDanhMuc", "TenDanhMuc") FROM stdin;
 COPY public."DeBanh" ("MaDeBanh", "TenDeBanh") FROM stdin;
 1	Đế Mỏng Giòn
 2	Đế Dày Xốp
+3	Đế vừa truyền thống
 \.
 
 
@@ -1330,7 +1336,6 @@ COPY public."DonHang" ("MaDonHang", "MaNguoiDung", "MaCoSo", "MaNguoiDungGiaoHan
 86	8	2	\N	\N	2025-11-22 04:26:14.858	2025-11-21 21:49:14.854	175000.00	0.00	200000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 87	8	2	\N	\N	2025-11-22 04:41:03.998	2025-11-21 22:04:03.994	285000.00	0.00	310000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 88	8	2	\N	\N	2025-11-22 04:44:36.362	2025-11-21 22:07:36.358	165000.00	0.00	190000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
-89	8	2	\N	\N	2025-11-22 04:53:57.406	2025-11-22 05:16:57.399	165000.00	0.00	190000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 90	8	2	8	\N	2025-11-22 04:54:29.003	2025-11-22 05:17:28.997	325000.00	0.00	350000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 91	8	2	\N	\N	2025-11-24 02:49:36.657	2025-11-24 03:12:36.653	285000.00	0.00	310000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 92	8	2	\N	\N	2025-11-24 03:01:48.316	2025-11-24 03:24:48.308	175000.00	0.00	200000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
@@ -1342,6 +1347,10 @@ COPY public."DonHang" ("MaDonHang", "MaNguoiDung", "MaCoSo", "MaNguoiDungGiaoHan
 99	8	2	\N	\N	2025-11-25 08:31:51.655	2025-11-25 08:54:51.65	60000.00	0.00	85000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 96	8	2	15	\N	2025-11-24 03:28:35.736	2025-11-24 03:51:35.732	60000.00	0.00	85000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
 100	8	2	\N	\N	2025-11-25 14:08:36.232	2025-11-24 14:31:36.206	115000.00	0.00	140000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
+101	8	2	\N	\N	2025-12-02 10:04:36.642	2025-12-02 10:27:36.639	205000.00	0.00	230000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
+102	8	2	\N	\N	2025-12-02 10:20:52.553	2025-12-02 10:43:52.545	325000.00	0.00	350000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
+89	8	2	15	\N	2025-11-22 04:53:57.406	2025-11-22 05:16:57.399	165000.00	0.00	190000.00		Tuấn khách hàng	0938894528	259/18 Hàn Hải Nguyên	Phường 02	Quận 11	Hồ Chí Minh	25000.00
+103	19	1	\N	\N	2025-12-16 12:47:37.445	2025-12-16 13:09:37.437	325000.00	0.00	350000.00		Customer	0900000012	259/18 Hàn Hải Nguyên	Phường Trung Liệt	Quận Đống Đa	Hà Nội	25000.00
 \.
 
 
@@ -1368,6 +1377,8 @@ COPY public."DonHang_QuaTang" ("MaDonHang", "MaQuaTang", "SoLuong") FROM stdin;
 93	1	1
 94	3	1
 97	1	1
+102	4	1
+103	1	1
 \.
 
 
@@ -1378,8 +1389,8 @@ COPY public."DonHang_QuaTang" ("MaDonHang", "MaQuaTang", "SoLuong") FROM stdin;
 --
 
 COPY public."KhuyenMai" ("MaKhuyenMai", "TenKhuyenMai", "MoTa", "KMLoai", "KMGiaTri", "KMBatDau", "KMKetThuc", "TrangThai") FROM stdin;
-2	Món phụ giảm 40k	\N	AMOUNT	40000.00	2025-11-08 06:00:00	2025-11-29 05:59:00	Active
 1	Pizza Sale 30%	\N	PERCENT	30.00	2025-11-08 06:00:00	2025-11-22 05:59:00	Active
+2	Món phụ giảm 40k	\N	AMOUNT	70000.00	2025-11-07 02:00:00	2025-12-04 01:59:00	Active
 \.
 
 
@@ -1518,6 +1529,11 @@ COPY public."LichSuTrangThaiDonHang" ("MaLichSu", "MaDonHang", "TrangThai", "Tho
 170	100	Chờ giao hàng	2025-12-01 22:24:49.683	\N
 171	100	Đang giao	2025-12-01 22:24:52.345	\N
 172	100	Đã giao	2025-12-01 22:24:55.433	\N
+173	101	Đang chờ xác nhận	2025-12-02 10:04:36.661	\N
+174	102	Đang chờ xác nhận	2025-12-02 10:20:52.59	\N
+175	103	Đang chờ xác nhận	2025-12-16 12:47:37.479	\N
+176	103	Đang xử lý	2025-12-16 12:48:35.429	\N
+177	103	Chờ giao hàng	2025-12-16 12:48:38.248	\N
 \.
 
 
@@ -1556,16 +1572,16 @@ COPY public."LoaiTuyChon" ("MaLoaiTuyChon", "TenLoaiTuyChon") FROM stdin;
 
 COPY public."MonAn" ("MaMonAn", "TenMonAn", "MoTa", "HinhAnh", "MaLoaiMonAn", "TrangThai", "DeXuat") FROM stdin;
 11	hehe	ádf	/images/AnhMonAn/z7209813005248-b44ed8cf695a25f3d3b306fc3d01e9f8-1762950733692-86087624.jpg	1	Deleted	f
-1	Pizza Siêu Topping Hải Sản Nhiệt Đới Xốt Tiêu	Tôm, nghêu, mực, thơm, hành tây trên nền sốt tiêu đen	/images/AnhMonAn/1.jpg	4	Active	t
 7	Pizza Siêu Topping Xúc Xích Ý Truyền Thống	Xúc xích Pepperoni trứ danh của Ý trên nền phô mai Mozzarella	/images/AnhMonAn/7.jpg	1	Active	t
-4	Pizza Siêu Topping Bò Mỹ Xốt Phô Mai	Thịt bò Mỹ cao cấp, nấm, cà chua và hành tây trên nền sốt phô mai	/images/AnhMonAn/4.jpg	1	Active	f
 5	Pizza Siêu Topping Bò và Tôm Nướng Kiểu Mỹ	Thịt bò, tôm nướng, bắp, hành tây và xốt Thousand Island	/images/AnhMonAn/5.jpg	1	Active	f
-6	Pizza Siêu Topping Giăm Bông Dứa Kiểu Hawaiian	Giăm bông, thịt xông khói và dứa ngọt dịu trên nền sốt cà chua	/images/AnhMonAn/6.jpg	1	Active	f
 10	Pizza 5 Loại Thịt Thượng Hạng	Pizza thượng hạng với 5 loại thịt: xúc xích Ý, jambon, thịt xông khói, pepperoni và xúc xích Đức. Kết hợp phô mai Mozzarella tan chảy tạo nên hương vị đậm đà khó quên.	/images/AnhMonAn/10.jpg	1	Active	f
+6	Pizza Siêu Topping Giăm Bông Dứa Kiểu Hawaiian	Giăm bông, thịt xông khói và dứa ngọt dịu trên nền sốt cà chua	/images/AnhMonAn/6.jpg	1	Active	f
 8	Khoai Tây Chiên	Khoai tây chiên giòn rụm	/images/AnhMonAn/8.jpg	2	Active	t
 9	Pepsi	Nước ngọt có gas	/images/AnhMonAn/9.jpg	4	Active	t
 2	Pizza Siêu Topping Hải Sản Xốt Mayonnaise	Tôm, mực, thanh cua và bông cải xanh tươi ngon trên nền sốt mayonnaise	/images/AnhMonAn/2.jpg	1	Inactive	t
 3	Pizza Siêu Topping Hải Sản Xốt Pesto Kem Chanh	Tôm, mực, cà chua và bông cải xanh trên nền sốt Pesto kem chanh	/images/AnhMonAn/3.jpg	1	Inactive	f
+4	Pizza Siêu Topping Bò Mỹ Xốt Phô Mai	Thịt bò Mỹ cao cấp, nấm, cà chua và hành tây trên nền sốt phô mai	/images/AnhMonAn/4.jpg	1	Active	f
+1	Pizza Siêu Topping Hải Sản Nhiệt Đới Xốt Tiêu	Tôm, nghêu, mực, thơm, hành tây trên nền sốt tiêu đen	/images/AnhMonAn/1.jpg	1	Active	t
 \.
 
 
@@ -1576,24 +1592,24 @@ COPY public."MonAn" ("MaMonAn", "TenMonAn", "MoTa", "HinhAnh", "MaLoaiMonAn", "T
 --
 
 COPY public."MonAn_DanhMuc" ("MaMonAn", "MaDanhMuc") FROM stdin;
-1	1
-1	2
-1	4
-1	3
-1	5
 7	3
-4	2
+6	3
 5	2
 5	1
-6	3
 8	5
 10	1
 10	2
 10	3
 10	4
 11	5
+4	2
 2	1
 3	1
+1	1
+1	2
+1	4
+1	3
+1	5
 \.
 
 
@@ -1604,12 +1620,8 @@ COPY public."MonAn_DanhMuc" ("MaMonAn", "MaDanhMuc") FROM stdin;
 --
 
 COPY public."MonAn_DeBanh" ("MaMonAn", "MaDeBanh") FROM stdin;
-4	1
 5	1
-6	1
-4	2
 5	2
-6	2
 11	1
 2	1
 2	2
@@ -1617,6 +1629,11 @@ COPY public."MonAn_DeBanh" ("MaMonAn", "MaDeBanh") FROM stdin;
 3	2
 7	1
 7	2
+6	2
+4	1
+1	1
+1	2
+1	3
 \.
 
 
@@ -1634,8 +1651,6 @@ COPY public."MonAn_KhuyenMai" ("MaMonAn", "MaKhuyenMai") FROM stdin;
 5	2
 6	2
 7	2
-8	2
-9	2
 10	2
 \.
 
@@ -1669,8 +1684,11 @@ COPY public."NguoiDung" ("MaNguoiDung", "MaTaiKhoan", "MaCoSo", "HoTen", "SoDien
 11	11	\N	Nhóm Secret	0900000001	\N	\N	\N	\N
 12	12	\N	Super Admin	0900000002	\N	\N	\N	\N
 14	14	1	Quản lý 1	0900000003	\N	\N	\N	\N
-15	15	1	Giao hàng 1	0900000004	\N	\N	\N	\N
 16	16	2	Quản lý 2	0900000005	\N	\N	\N	\N
+17	17	\N	Customer	0900000011	\N	\N	\N	\N
+19	19	\N	Customer	0900000012	\N	\N	\N	\N
+20	20	\N	SUPPER ADMIN	09000000020	\N	\N	\N	\N
+15	15	1	Giao hàng 1	0900000004	\N	\N	\N	\N
 \.
 
 
@@ -1714,6 +1732,10 @@ COPY public."TaiKhoan" ("MaTaiKhoan", "Email", "MatKhau", "Role", "TrangThai") F
 14	admin1@gmail.com	$2b$10$uUwtO6Ee4RU/UMp/oQEB1uCI16sFoNyLQGefoWL/xKHm6Sec67VPq	ADMIN	Active
 15	shipper1@gmail.com	$2b$10$vQhd9NI3zzF7ZK/fevZYnOW792Wo8H7/VpyYSx6mvuAy0swy5T91q	SHIPPER	Active
 16	admin2@gmail.com	$2b$10$Ijqltf1l2WQqwsylxiKYzOHcrequK4vfVwosqeweuJJtZFfTWdsMW	ADMIN	Active
+17	customer@gmail.com	$2b$10$p2Z/dX8e2.0ZDTAdyt8JuuLM2oDR37eLoDjcq7AecCVqgG3WgGiw.	CUSTOMER	Active
+18	customer123@gmail.com	$2b$10$hdVj4mmC8oUAQP60lopZyeQojNobOizVryMkUnNze17xIZ/AAtOBC	CUSTOMER	Active
+19	customer1@gmail.com	$2b$10$d7s6bHixFHl/buSvSeUt7OcQ/tnjbp5dB13jxHvBJtgmtltCzge82	CUSTOMER	Active
+20	admin@gmail.com	$2b$10$PsfepAYQEkAa.G5CKdsCHOrDl/KFMLkQJoxzOd.HqZ5l7sla./mFO	SUPER_ADMIN	Active
 1	khachhang_hcm	hashed_password_123	CUSTOMER	Active
 3	admin_hcm	hashed_password_789	ADMIN	Active
 2	shipper_hn	hashed_password_456	SHIPPER	Active
@@ -1788,6 +1810,9 @@ COPY public."ThanhToan" ("MaThanhToan", "MaDonHang", "PhuongThuc", "MaGiaoDich",
 102	98	Tiền Mặt	\N	220000.00	Chưa thanh toán	2025-11-25 08:26:35.423
 103	99	Chuyển Khoản	1764034555417-15285541	85000.00	Đã thanh toán	2025-11-25 08:35:55.421
 104	100	Tiền Mặt	\N	140000.00	Đã thanh toán	2025-11-25 14:08:36.282
+105	101	Tiền Mặt	\N	230000.00	Chưa thanh toán	2025-12-02 10:04:36.655
+106	102	Tiền Mặt	\N	350000.00	Chưa thanh toán	2025-12-02 10:20:52.587
+107	103	Tiền Mặt	\N	350000.00	Chưa thanh toán	2025-12-16 12:47:37.473
 \.
 
 
@@ -1873,7 +1898,7 @@ SELECT pg_catalog.setval('public."ChiTietDonHang_ChiTietCombo_MaCTDH_Combo_seq"'
 -- Name: ChiTietDonHang_MaChiTiet_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."ChiTietDonHang_MaChiTiet_seq"', 155, true);
+SELECT pg_catalog.setval('public."ChiTietDonHang_MaChiTiet_seq"', 158, true);
 
 
 --
@@ -1891,7 +1916,7 @@ SELECT pg_catalog.setval('public."CoSo_MaCoSo_seq"', 2, true);
 -- Name: Combo_ChiTiet_MaCTCombo_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."Combo_ChiTiet_MaCTCombo_seq"', 10, true);
+SELECT pg_catalog.setval('public."Combo_ChiTiet_MaCTCombo_seq"', 16, true);
 
 
 --
@@ -1936,7 +1961,7 @@ SELECT pg_catalog.setval('public."DanhMuc_MaDanhMuc_seq"', 19, true);
 -- Name: DeBanh_MaDeBanh_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."DeBanh_MaDeBanh_seq"', 2, true);
+SELECT pg_catalog.setval('public."DeBanh_MaDeBanh_seq"', 3, true);
 
 
 --
@@ -1945,7 +1970,7 @@ SELECT pg_catalog.setval('public."DeBanh_MaDeBanh_seq"', 2, true);
 -- Name: DonHang_MaDonHang_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."DonHang_MaDonHang_seq"', 100, true);
+SELECT pg_catalog.setval('public."DonHang_MaDonHang_seq"', 103, true);
 
 
 --
@@ -1963,7 +1988,7 @@ SELECT pg_catalog.setval('public."KhuyenMai_MaKhuyenMai_seq"', 3, true);
 -- Name: LichSuTrangThaiDonHang_MaLichSu_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."LichSuTrangThaiDonHang_MaLichSu_seq"', 172, true);
+SELECT pg_catalog.setval('public."LichSuTrangThaiDonHang_MaLichSu_seq"', 177, true);
 
 
 --
@@ -1999,7 +2024,7 @@ SELECT pg_catalog.setval('public."MonAn_MaMonAn_seq"', 11, true);
 -- Name: NguoiDung_MaNguoiDung_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."NguoiDung_MaNguoiDung_seq"', 16, true);
+SELECT pg_catalog.setval('public."NguoiDung_MaNguoiDung_seq"', 20, true);
 
 
 --
@@ -2026,7 +2051,7 @@ SELECT pg_catalog.setval('public."Size_MaSize_seq"', 2, true);
 -- Name: TaiKhoan_MaTaiKhoan_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."TaiKhoan_MaTaiKhoan_seq"', 16, true);
+SELECT pg_catalog.setval('public."TaiKhoan_MaTaiKhoan_seq"', 20, true);
 
 
 --
@@ -2035,7 +2060,7 @@ SELECT pg_catalog.setval('public."TaiKhoan_MaTaiKhoan_seq"', 16, true);
 -- Name: ThanhToan_MaThanhToan_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public."ThanhToan_MaThanhToan_seq"', 104, true);
+SELECT pg_catalog.setval('public."ThanhToan_MaThanhToan_seq"', 107, true);
 
 
 --
@@ -2785,7 +2810,7 @@ ALTER TABLE ONLY public."AI_ReviewAnalysis"
     ADD CONSTRAINT fk_review FOREIGN KEY ("MaDanhGiaDonHang") REFERENCES public."DanhGiaDonHang"("MaDanhGiaDonHang") ON DELETE CASCADE;
 
 
--- Completed on 2025-12-02 07:05:57
+-- Completed on 2025-12-16 12:55:24
 
 --
 -- PostgreSQL database dump complete
