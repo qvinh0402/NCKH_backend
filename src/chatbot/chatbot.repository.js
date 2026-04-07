@@ -1,6 +1,7 @@
 // Chatbot Repository - Xử lý tất cả database operations
 
-const prisma = require('../client');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 class ChatbotRepository {
   constructor() {
