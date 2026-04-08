@@ -26,6 +26,7 @@ const optionRoutes = require('./src/api/options/option.routes');
 const giftRoutes = require('./src/api/gifts/gift.routes');
 const chatRoutes = require('./src/api/chat/chat.routes');
 const chatbotRoutes = require('./src/chatbot/chatbot.routes');
+const aiRoutes = require('./src/api/ai/ai.routes');
 
 // --- KHỞI TẠO EXPRESS APP ---
 const app = express();
@@ -77,6 +78,7 @@ app.use('/api/options', optionRoutes);
 app.use('/api/gifts', giftRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ==============================
 // 🌍 LOCATION API (FIX CORS)

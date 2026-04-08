@@ -239,8 +239,10 @@ class ChatbotService {
         response = this.getDefaultResponse();
       } else {
         try {
+          // Pass the original message to AI scenarios
+          const responseArg = matchedScenario.isAIFallback ? userMessage : normalizedMessage;
           response = await matchedScenario.response(
-            normalizedMessage,
+            responseArg,
             session
           );
 
@@ -275,11 +277,18 @@ class ChatbotService {
   // ============================================
 
   findMatchingScenario(message) {
+    let aiFallbackScenario = null;
+
     for (const scenario of this.scenarios) {
+      // Save AI fallback scenario for later
+      if (scenario.isAIFallback) {
+        aiFallbackScenario = scenario;
+        continue;
+      }
+
       if (!scenario.patterns || !Array.isArray(scenario.patterns)) continue;
 
       for (const pattern of scenario.patterns) {
-
         if (pattern.global) {
           pattern.lastIndex = 0;
         }
@@ -289,7 +298,9 @@ class ChatbotService {
         }
       }
     }
-    return null;
+
+    // Return AI fallback scenario if no pattern matched
+    return aiFallbackScenario || null;
   }
 
   // ============================================

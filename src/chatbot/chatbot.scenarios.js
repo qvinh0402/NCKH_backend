@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { callAI } = require('../services/aiService');
 const prisma = new PrismaClient();
 
 // =============================
@@ -480,6 +481,49 @@ Sau khi gửi thành công:
 Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
 ` + getSuggestions();
 
+    }
+  },
+
+  // =====================================================
+  // 🤖 AI-POWERED RESPONSE (Groq)
+  // =====================================================
+  {
+    name: "AI Response - Groq",
+    patterns: [], // This is a fallback - matches anything not matched above
+    isAIFallback: true,
+    
+    response: async (message) => {
+      try {
+        console.log('[Chatbot] Using AI fallback for message:', message.substring(0, 50));
+        
+        const context = `
+Bạn là một trợ lý chatbot thân thiện cho Secret Pizza, một nhà hàng pizza tại thành phố Hồ Chí Minh, Việt Nam.
+Bạn giúp khách hàng:
+- Tìm kiếm và gọi món pizza, nước uống
+- Hỏi về giá cả, combo
+- Hướng dẫn cách đặt hàng
+- Trả lời câu hỏi về cửa hàng
+
+Hãy trả lời ngắn gọn, thân thiện, bằng tiếng Việt.
+Câu hỏi từ khách: ${message}
+`;
+
+        const reply = await callAI(context, 'AUTO', {
+          max_tokens: 256,
+          temperature: 0.7
+        });
+
+        return reply + '\n' + getSuggestions();
+
+      } catch (error) {
+        console.error('[Chatbot AI Error]:', error.message);
+        return `Xin lỗi, tôi không hiểu câu hỏi của bạn. 
+
+Bạn có thể:
+- Viết chi tiết hơn
+- Chọn một trong các gợi ý dưới đây
+` + getSuggestions();
+      }
     }
   }
 

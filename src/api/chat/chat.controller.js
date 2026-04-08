@@ -1,3 +1,48 @@
+const { callAI } = require('../../services/aiService');
+
+// Chat với Groq AI (thay vì Gemini)
+const chatWithGroq = async (req, res) => {
+  try {
+    const { message, model = 'AUTO' } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Message must be a non-empty string' });
+    }
+
+    console.log(`[Chat] Received message: "${message.substring(0, 50)}..."`);
+
+    // Gọi AI với fallback logic (Groq → OpenRouter)
+    const reply = await callAI(message, model, {
+      max_tokens: 512,
+      temperature: 0.7
+    });
+
+    res.json({ 
+      reply,
+      model,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[Chat Controller Error]:', error.message);
+    
+    if (error.message.includes('API Key')) {
+      return res.status(500).json({ error: 'AI service not configured properly' });
+    }
+    
+    if (error.message.includes('All AI providers failed')) {
+      return res.status(503).json({ error: 'AI service temporarily unavailable. Please try again later.' });
+    }
+
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+};
+
+// Legacy: Keep Gemini endpoint for backward compatibility
 const chatWithGemini = async (req, res) => {
   try {
     const { message } = req.body;
@@ -50,5 +95,6 @@ const chatWithGemini = async (req, res) => {
 };
 
 module.exports = {
-  chatWithGemini
+  chatWithGroq,
+  chatWithGemini // Keep for backward compatibility
 };
