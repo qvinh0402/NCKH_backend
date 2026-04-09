@@ -17,6 +17,7 @@ GỢI Ý:
 5. Cách kiểm tra đơn hàng
 6. Hướng dẫn đánh giá món
 7. Hướng dẫn đánh giá đơn hàng
+8. Thông tin chi nhánh
 ---------------------------------
 `;
 }
@@ -481,6 +482,85 @@ Sau khi gửi thành công:
 Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
 ` + getSuggestions();
 
+    }
+  },
+
+  // =====================================================
+  // 8️⃣ CHI NHÁNH / CỬA HÀNG
+  // =====================================================
+  {
+    name: "Thông tin chi nhánh",
+    patterns: [
+      /chi nhánh/i,
+      /chi nhanh/i,
+      /cửa hàng/i,
+      /cua hang/i,
+      /địa chỉ/i,
+      /dia chi/i,
+      /liên hệ/i,
+      /lien he/i,
+      /số điện thoại/i,
+      /so dien thoai/i,
+      /ở đâu/i,
+      /o dau/i,
+      /chúng ta ở /i,
+      /chung ta o /i
+    ],
+
+    response: async () => {
+      try {
+        // Lấy danh sách chi nhánh từ database
+        const branches = await prisma.coSo.findMany({
+          select: {
+            MaCoSo: true,
+            TenCoSo: true,
+            SoDienThoai: true,
+            SoNhaDuong: true,
+            PhuongXa: true,
+            QuanHuyen: true,
+            ThanhPho: true
+          },
+          orderBy: { MaCoSo: 'asc' }
+        });
+
+        if (!branches || branches.length === 0) {
+          return `Xin lỗi, hiện tại không có thông tin chi nhánh nào. Vui lòng liên hệ hỗ trợ.` + getSuggestions();
+        }
+
+        // Định dạng thông tin chi nhánh
+        let response = `
+SECRET PIZZA - DANH SÁCH CHI NHÁNH
+
+Hiện tại chúng tôi có ${branches.length} chi nhánh tại các địa điểm sau:
+
+`;
+
+        branches.forEach((branch, index) => {
+          response += `
+${index + 1}️⃣ ${branch.TenCoSo}
+   📍 Địa chỉ: ${branch.SoNhaDuong}, ${branch.PhuongXa}, ${branch.QuanHuyen}, ${branch.ThanhPho}
+   📞 Điện thoại: ${branch.SoDienThoai || 'N/A'}
+
+`;
+        });
+
+        response += `
+🕐 Giờ hoạt động: 10:00 - 22:00 (Tất cả các ngày)
+
+Bạn có thể:
+• Gọi trực tiếp đến chi nhánh gần nhất
+• Đặt hàng qua app, giao hàng sẽ được chuẩn bị tại chi nhánh
+• Ghé thăm trực tiếp để mua
+
+Cảm ơn bạn đã chọn Secret Pizza ❤️
+`;
+
+        return response + getSuggestions();
+
+      } catch (error) {
+        console.error('[Chatbot] Chi nhánh error:', error);
+        return `Xin lỗi, có lỗi khi lấy thông tin chi nhánh. Vui lòng thử lại sau.` + getSuggestions();
+      }
     }
   },
 
