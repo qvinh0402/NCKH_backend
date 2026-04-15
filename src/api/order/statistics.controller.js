@@ -187,8 +187,38 @@ async function getReviewIssueStatistics(req, res) {
     const data = await statsRepo.getReviewIssueStatistics({ startDate, endDate, branchId });
     
     if (analyze === 'true') {
-      const summary = await aiReviewService.summarizeWeeklyIssues(data);
-      data.aiSummary = summary;
+      // Convert issue details back to review format for AI summarization
+      // Combine all issues into a pseudo-reviews array
+      const pseudoReviews = [];
+      
+      if (data.issueDetails?.Food?.length > 0) {
+        data.issueDetails.Food.forEach(issue => {
+          pseudoReviews.push({ rating: 2, comment: `Vấn đề thức ăn: ${issue}` });
+        });
+      }
+      if (data.issueDetails?.Driver?.length > 0) {
+        data.issueDetails.Driver.forEach(issue => {
+          pseudoReviews.push({ rating: 2, comment: `Vấn đề giao hàng: ${issue}` });
+        });
+      }
+      if (data.issueDetails?.Store?.length > 0) {
+        data.issueDetails.Store.forEach(issue => {
+          pseudoReviews.push({ rating: 2, comment: `Vấn đề quán: ${issue}` });
+        });
+      }
+      if (data.issueDetails?.Other?.length > 0) {
+        data.issueDetails.Other.forEach(issue => {
+          pseudoReviews.push({ rating: 2, comment: `Vấn đề khác: ${issue}` });
+        });
+      }
+      
+      // Only call AI summary if we have reviews
+      if (pseudoReviews.length > 0) {
+        const summary = await aiReviewService.summarizeWeeklyIssues(pseudoReviews, 'AUTO');
+        data.aiSummary = summary;
+      } else {
+        data.aiSummary = '<div><p>📊 Không có dữ liệu để phân tích.</p></div>';
+      }
     }
 
     res.json({ success: true, data });
