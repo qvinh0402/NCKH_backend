@@ -48,15 +48,7 @@ const scenarios = [
         where: {
           TrangThai: "Active",
           MonAn: {
-            MonAn_DanhMuc: {
-              some: {
-                DanhMuc: {
-                  TenDanhMuc: {
-                    not: "Nước uống"
-                  }
-                }
-              }
-            }
+            MaLoaiMonAn: 1 // Pizza only
           }
         },
         orderBy: { GiaBan: "desc" },
@@ -77,18 +69,18 @@ const scenarios = [
       });
 
       if (!variant) {
-        return "Hiện chưa có dữ liệu món ăn." + getSuggestions();
+        return "Hiện chưa có dữ liệu pizza nào." + getSuggestions();
       }
 
       const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
       return `
-MÓN ĐẮT NHẤT HIỆN TẠI
+PIZZA ĐẮT NHẤT HIỆN TẠI
 
 Tên món: ${variant.MonAn.TenMonAn}
 Loại: ${category}
 Giá bán: ${formatPrice(variant.GiaBan)}
 
-Đây là món có giá cao nhất trong danh mục đang kinh doanh.
+Đây là chiếc pizza có giá cao nhất trong danh mục đang kinh doanh.
 ` + getSuggestions();
     }
   },
@@ -110,15 +102,7 @@ Giá bán: ${formatPrice(variant.GiaBan)}
         where: {
           TrangThai: "Active",
           MonAn: {
-            MonAn_DanhMuc: {
-              some: {
-                DanhMuc: {
-                  TenDanhMuc: {
-                    not: "Nước uống"
-                  }
-                }
-              }
-            }
+            MaLoaiMonAn: 1 // Pizza only
           }
         },
         orderBy: { GiaBan: "asc" },
@@ -139,18 +123,18 @@ Giá bán: ${formatPrice(variant.GiaBan)}
       });
 
       if (!variant) {
-        return "Hiện chưa có dữ liệu món ăn." + getSuggestions();
+        return "Hiện chưa có dữ liệu pizza nào." + getSuggestions();
       }
 
       const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
       return `
-MÓN RẺ NHẤT HIỆN TẠI
+PIZZA RẺ NHẤT HIỆN TẠI
 
 Tên món: ${variant.MonAn.TenMonAn}
 Loại: ${category}
 Giá bán: ${formatPrice(variant.GiaBan)}
 
-Đây là món có mức giá tiết kiệm nhất hiện đang bán.
+Đây là chiếc pizza có mức giá tiết kiệm nhất hiện đang bán.
 ` + getSuggestions();
     }
   },
@@ -174,11 +158,18 @@ Giá bán: ${formatPrice(variant.GiaBan)}
         by: ['MaBienThe'],
         _sum: { SoLuong: true },
         orderBy: { _sum: { SoLuong: 'desc' } },
-        take: 1
+        take: 1,
+        where: {
+          BienTheMonAn: {
+            MonAn: {
+              MaLoaiMonAn: 1 // Pizza only
+            }
+          }
+        }
       });
 
       if (!bestSeller.length) {
-        return "Chưa có dữ liệu bán hàng." + getSuggestions();
+        return "Chưa có dữ liệu bán hàng cho pizza." + getSuggestions();
       }
 
       const variant = await prisma.bienTheMonAn.findUnique({
@@ -200,17 +191,17 @@ Giá bán: ${formatPrice(variant.GiaBan)}
       });
 
       if (!variant) {
-        return "Không tìm thấy thông tin món bán chạy." + getSuggestions();
+        return "Không tìm thấy thông tin pizza bán chạy." + getSuggestions();
       }
 
       const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
       return `
-MÓN BÁN CHẠY NHẤT
+PIZZA BÁN CHẠY NHẤT
 
 Tên món: ${variant.MonAn.TenMonAn}
 Loại: ${category}
 
-Đây là món được khách hàng đặt nhiều nhất trong thời gian gần đây.
+Đây là chiếc pizza được khách hàng đặt nhiều nhất trong thời gian gần đây.
 ` + getSuggestions();
     }
   },
