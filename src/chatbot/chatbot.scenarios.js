@@ -44,12 +44,35 @@ const scenarios = [
     ],
 
     response: async () => {
-
       const variant = await prisma.bienTheMonAn.findFirst({
-        where: { TrangThai: "Active" },
+        where: {
+          TrangThai: "Active",
+          MonAn: {
+            MonAn_DanhMuc: {
+              some: {
+                DanhMuc: {
+                  TenDanhMuc: {
+                    not: "Nước uống"
+                  }
+                }
+              }
+            }
+          }
+        },
         orderBy: { GiaBan: "desc" },
         include: {
-          MonAn: { select: { TenMonAn: true } }
+          MonAn: {
+            select: {
+              TenMonAn: true,
+              MonAn_DanhMuc: {
+                select: {
+                  DanhMuc: {
+                    select: { TenDanhMuc: true }
+                  }
+                }
+              }
+            }
+          }
         }
       });
 
@@ -57,10 +80,12 @@ const scenarios = [
         return "Hiện chưa có dữ liệu món ăn." + getSuggestions();
       }
 
+      const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
       return `
 MÓN ĐẮT NHẤT HIỆN TẠI
 
 Tên món: ${variant.MonAn.TenMonAn}
+Loại: ${category}
 Giá bán: ${formatPrice(variant.GiaBan)}
 
 Đây là món có giá cao nhất trong danh mục đang kinh doanh.
@@ -81,12 +106,35 @@ Giá bán: ${formatPrice(variant.GiaBan)}
     ],
 
     response: async () => {
-
       const variant = await prisma.bienTheMonAn.findFirst({
-        where: { TrangThai: "Active" },
+        where: {
+          TrangThai: "Active",
+          MonAn: {
+            MonAn_DanhMuc: {
+              some: {
+                DanhMuc: {
+                  TenDanhMuc: {
+                    not: "Nước uống"
+                  }
+                }
+              }
+            }
+          }
+        },
         orderBy: { GiaBan: "asc" },
         include: {
-          MonAn: { select: { TenMonAn: true } }
+          MonAn: {
+            select: {
+              TenMonAn: true,
+              MonAn_DanhMuc: {
+                select: {
+                  DanhMuc: {
+                    select: { TenDanhMuc: true }
+                  }
+                }
+              }
+            }
+          }
         }
       });
 
@@ -94,10 +142,12 @@ Giá bán: ${formatPrice(variant.GiaBan)}
         return "Hiện chưa có dữ liệu món ăn." + getSuggestions();
       }
 
+      const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
       return `
 MÓN RẺ NHẤT HIỆN TẠI
 
 Tên món: ${variant.MonAn.TenMonAn}
+Loại: ${category}
 Giá bán: ${formatPrice(variant.GiaBan)}
 
 Đây là món có mức giá tiết kiệm nhất hiện đang bán.
@@ -120,7 +170,6 @@ Giá bán: ${formatPrice(variant.GiaBan)}
     ],
 
     response: async () => {
-
       const bestSeller = await prisma.chiTietDonHang.groupBy({
         by: ['MaBienThe'],
         _sum: { SoLuong: true },
@@ -135,7 +184,18 @@ Giá bán: ${formatPrice(variant.GiaBan)}
       const variant = await prisma.bienTheMonAn.findUnique({
         where: { MaBienThe: bestSeller[0].MaBienThe },
         include: {
-          MonAn: { select: { TenMonAn: true } }
+          MonAn: {
+            select: {
+              TenMonAn: true,
+              MonAn_DanhMuc: {
+                select: {
+                  DanhMuc: {
+                    select: { TenDanhMuc: true }
+                  }
+                }
+              }
+            }
+          }
         }
       });
 
@@ -143,10 +203,12 @@ Giá bán: ${formatPrice(variant.GiaBan)}
         return "Không tìm thấy thông tin món bán chạy." + getSuggestions();
       }
 
+      const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
       return `
 MÓN BÁN CHẠY NHẤT
 
 Tên món: ${variant.MonAn.TenMonAn}
+Loại: ${category}
 
 Đây là món được khách hàng đặt nhiều nhất trong thời gian gần đây.
 ` + getSuggestions();
