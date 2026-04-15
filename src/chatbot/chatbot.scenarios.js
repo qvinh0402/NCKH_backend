@@ -321,39 +321,39 @@ Bạn có thể đánh giá món ăn trực tiếp trên trang chi tiết sản 
 TRƯỜNG HỢP 1: BẠN CHƯA ĐĂNG NHẬP
 
 Bước 1  
-Vào trang **MENU** của cửa hàng.
+Vào trang "MENU" của cửa hàng.
 
 Bước 2  
 Chọn món ăn mà bạn muốn xem hoặc đánh giá.
 
 Bước 3  
-Cuộn xuống phần **Đánh giá sản phẩm**.
+Cuộn xuống phần "Đánh giá sản phẩm".
 
 Bước 4  
-Nhấn nút **"Đăng nhập để đánh giá"**.
+Nhấn nút "Đăng nhập để đánh giá".
 
 Bước 5  
-Hệ thống sẽ chuyển bạn đến trang **Đăng nhập**.  
+Hệ thống sẽ chuyển bạn đến trang "Đăng nhập".  
 Bạn nhập:
 
 📧 Email  
 🔒 Mật khẩu  
 
-Sau đó nhấn **Đăng nhập** để tiếp tục.
+Sau đó nhấn "Đăng nhập" để tiếp tục.
 
 TRƯỜNG HỢP 2: BẠN ĐÃ ĐĂNG NHẬP
 
 Bước 1  
-Vào trang **MENU**.
+Vào trang MENU.
 
 Bước 2  
 Chọn món ăn mà bạn muốn đánh giá.
 
 Bước 3  
-Cuộn xuống phần **Đánh giá sản phẩm**.
+Cuộn xuống phần "Đánh giá sản phẩm".
 
 Bước 4  
-Nhấn nút **"Viết đánh giá"**.
+Nhấn nút "Viết đánh giá".
 
 Bước 5  
 Nhập thông tin đánh giá:
@@ -367,7 +367,7 @@ Ví dụ:
 - "Giao hàng nhanh và bánh nóng"
 
 Bước 6  
-Nhấn **Gửi đánh giá** để hoàn tất.
+Nhấn "Gửi đánh giá" để hoàn tất.
 
 KẾT QUẢ
 
@@ -376,7 +376,7 @@ Sau khi gửi thành công:
 ✔️ Đánh giá của bạn sẽ hiển thị trong danh sách đánh giá của sản phẩm  
 ✔️ Người dùng khác có thể xem nhận xét của bạn  
 
-Cảm ơn bạn đã chia sẻ trải nghiệm với **Secret Pizza ❤️**
+Cảm ơn bạn đã chia sẻ trải nghiệm với Secret Pizza ❤️
 
 ` + getSuggestions();
 
@@ -411,24 +411,24 @@ Bạn có thể đánh giá đơn hàng sau khi đơn đã được giao thành 
 Các bước thực hiện:
 
 Bước 1  
-Truy cập trang **Đơn hàng** trên thanh menu.
+Truy cập trang "Đơn hàng" trên thanh menu.
 
 Bước 2  
 Tại danh sách đơn hàng của bạn, tìm đơn cần đánh giá.
 
 Điều kiện:
-Đơn phải có trạng thái **Đã giao**.
+Đơn phải có trạng thái "Đã giao".
 
 Bước 3  
-Nhấn nút **"Đánh giá"** ở bên phải đơn hàng.
+Nhấn nút "Đánh giá" ở bên phải đơn hàng.
 
 Bước 4  
-Hệ thống sẽ hiển thị cửa sổ **Đánh giá đơn hàng**.
+Hệ thống sẽ hiển thị cửa sổ "Đánh giá đơn hàng".
 
 Bạn cần nhập:
 
-⭐ **Số sao đánh giá (1 - 5 sao)**  
-✏️ **Bình luận về trải nghiệm của bạn**
+⭐ Số sao đánh giá (1 - 5 sao)  
+✏️ Bình luận về trải nghiệm của bạn
 
 Ví dụ bình luận:
 - "Ngon, shipper giao nhanh"
@@ -436,12 +436,12 @@ Ví dụ bình luận:
 - "Pizza ngon nhưng giao hơi chậm"
 
 Bước 5  
-Nhấn **Gửi đánh giá** để hoàn tất.
+Nhấn "Gửi đánh giá" để hoàn tất.
 
 Sau khi gửi thành công:
 
-• Hệ thống sẽ hiển thị thông báo **"Cảm ơn bạn đã đánh giá!"**  
-• Nút **Đánh giá** sẽ chuyển thành **Đã đánh giá**
+• Hệ thống sẽ hiển thị thông báo "Cảm ơn bạn đã đánh giá!"  
+• Nút "Đánh giá" sẽ chuyển thành "Đã đánh giá"
 
 Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
 ` + getSuggestions();
