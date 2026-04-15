@@ -2,6 +2,8 @@
 
 const { scenarios } = require('./chatbot.scenarios');
 const { sanitizeMessage } = require('./chatbot.optimization');
+const chatbotAIContext = require('./chatbot-ai-context');
+const { callAIWithMenuContext } = require('./chatbot-ai-wrapper');
 
 class ChatbotService {
   constructor() {
@@ -239,12 +241,14 @@ class ChatbotService {
         response = this.getDefaultResponse();
       } else {
         try {
-          // Pass the original message to AI scenarios
-          const responseArg = matchedScenario.isAIFallback ? userMessage : normalizedMessage;
-          response = await matchedScenario.response(
-            responseArg,
-            session
-          );
+          // 🤖 AI Fallback: Sử dụng context từ database
+          if (matchedScenario.isAIFallback) {
+            response = await this.handleAIFallback(userMessage);
+          } else {
+            // Scenario thường: gọi response như bình thường
+            const responseArg = normalizedMessage;
+            response = await matchedScenario.response(responseArg, session);
+          }
 
           this.logPerformance(`Matched: ${matchedScenario.name}`, start);
 
@@ -322,6 +326,37 @@ class ChatbotService {
       `${suggestionList}\n\n` +
       `👉 Bạn muốn thực hiện chức năng nào? Hãy nhập rõ hơn nhé!`
     );
+  }
+
+  // ============================================
+  // AI RESPONSE HANDLER (với database context)
+  // ============================================
+
+  /**
+   * Xử lý AI fallback response với menu context từ database
+   * Đảm bảo AI chỉ gợi ý món ăn có trong thực đơn
+   */
+  async handleAIFallback(userMessage) {
+    try {
+      console.log('[ChatbotService] Handling AI fallback with menu context');
+      
+      // Gọi AI với context thực đơn từ database
+      const reply = await callAIWithMenuContext(userMessage, 'AUTO');
+      
+      return reply;
+    } catch (error) {
+      console.error('[ChatbotService] handleAIFallback error:', error.message);
+      
+      // Fallback response nếu AI fail
+      return `Xin lỗi, tôi không thể trả lời câu hỏi này ngay bây giờ. 
+      
+Bạn có thể:
+• Hỏi về pizza rẻ nhất, đắt nhất
+• Hỏi cách đặt hàng
+• Kiểm tra thông tin chi nhánh
+
+Vui lòng thử lại!`;
+    }
   }
 
   // ============================================
