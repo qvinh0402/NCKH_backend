@@ -8,14 +8,13 @@ const prisma = new PrismaClient();
 function getSuggestions() {
   return `
 GỢI Ý:
-1. Xem món đắt nhất
-2. Xem món rẻ nhất
-3. Xem món bán chạy
-4. Hướng dẫn đặt hàng
-5. Cách kiểm tra đơn hàng
-6. Hướng dẫn đánh giá món
-7. Hướng dẫn đánh giá đơn hàng
-8. Thông tin chi nhánh
+1. Xem món bán chạy
+2. Xem thực đơn
+3. Hướng dẫn đặt hàng
+4. Cách kiểm tra đơn hàng
+5. Hướng dẫn đánh giá món
+6. Hướng dẫn đánh giá đơn hàng
+7. Thông tin chi nhánh
 `;
 }
 
@@ -32,115 +31,7 @@ function formatPrice(price) {
 const scenarios = [
 
   // =====================================================
-  // 1️⃣ XEM MÓN ĐẮT NHẤT
-  // =====================================================
-  {
-    name: "Xem món đắt nhất",
-    patterns: [
-      /đắt nhất/i,
-      /dat nhat/i,
-      /món đắt/i,
-      /mon dat/i
-    ],
-
-    response: async () => {
-      const variant = await prisma.bienTheMonAn.findFirst({
-        where: {
-          TrangThai: "Active",
-          MonAn: {
-            MaLoaiMonAn: 1 // Pizza only
-          }
-        },
-        orderBy: { GiaBan: "desc" },
-        include: {
-          MonAn: {
-            select: {
-              TenMonAn: true,
-              MonAn_DanhMuc: {
-                select: {
-                  DanhMuc: {
-                    select: { TenDanhMuc: true }
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (!variant) {
-        return "Hiện chưa có dữ liệu pizza nào." + getSuggestions();
-      }
-
-      const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
-      return `
-PIZZA ĐẮT NHẤT HIỆN TẠI
-
-Tên món: ${variant.MonAn.TenMonAn}
-Loại: ${category}
-Giá bán: ${formatPrice(variant.GiaBan)}
-
-Đây là chiếc pizza có giá cao nhất trong danh mục đang kinh doanh.
-` + getSuggestions();
-    }
-  },
-
-  // =====================================================
-  // 2️⃣ XEM MÓN RẺ NHẤT
-  // =====================================================
-  {
-    name: "Xem món rẻ nhất",
-    patterns: [
-      /rẻ nhất/i,
-      /re nhat/i,
-      /món rẻ/i,
-      /mon re/i
-    ],
-
-    response: async () => {
-      const variant = await prisma.bienTheMonAn.findFirst({
-        where: {
-          TrangThai: "Active",
-          MonAn: {
-            MaLoaiMonAn: 1 // Pizza only
-          }
-        },
-        orderBy: { GiaBan: "asc" },
-        include: {
-          MonAn: {
-            select: {
-              TenMonAn: true,
-              MonAn_DanhMuc: {
-                select: {
-                  DanhMuc: {
-                    select: { TenDanhMuc: true }
-                  }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (!variant) {
-        return "Hiện chưa có dữ liệu pizza nào." + getSuggestions();
-      }
-
-      const category = variant.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
-      return `
-PIZZA RẺ NHẤT HIỆN TẠI
-
-Tên món: ${variant.MonAn.TenMonAn}
-Loại: ${category}
-Giá bán: ${formatPrice(variant.GiaBan)}
-
-Đây là chiếc pizza có mức giá tiết kiệm nhất hiện đang bán.
-` + getSuggestions();
-    }
-  },
-
-  // =====================================================
-  // 3️⃣ XEM MÓN BÁN CHẠY
+  // 1️⃣ XEM MÓN BÁN CHẠY
   // =====================================================
   {
     name: "Xem món bán chạy",
@@ -207,7 +98,56 @@ Loại: ${category}
   },
 
   // =====================================================
-  // 4️⃣ HƯỚNG DẪN ĐẶT HÀNG
+  // 2️⃣ XEM THỰC ĐƠN / CÁC LOẠI MÓN
+  // =====================================================
+  {
+    name: "Xem thực đơn",
+    patterns: [
+      /thực đơn/i,
+      /thuc don/i,
+      /menu/i,
+      /danh sách món/i,
+      /danh sach mon/i,
+      /các loại món/i,
+      /cac loai mon/i,
+      /xem menu/i,
+      /có những gì/i,
+      /co nhung gi/i
+    ],
+
+    response: async () => {
+      return `
+THỰC ĐƠN SECRET PIZZA
+
+Chúng tôi phục vụ các loại sản phẩm:
+
+🍕 PIZZA
+Các loại pizza với nhiều topping khác nhau. Bạn có thể chọn kích thước và loại đế bánh yêu thích.
+
+🥤 NƯỚC UỐNG
+Các loại nước giải khát, sinh tố, nước ép trái cây tươi.
+
+🍰 TRÁNG MIỆNG
+Các loại bánh, kem, và món tráng miệng khác.
+
+🎁 COMBO
+Các combo tiết kiệm với các món được chọn lọc kỹ lưỡng.
+
+🎉 QUÀ TẶNG
+Các gói quà tặng đặc biệt cho dịp lễ hội.
+
+Bạn có thể:
+• Xem chi tiết từng sản phẩm
+• Xem giá cả
+• Xem đánh giá từ khách hàng khác
+
+Để xem chi tiết, bạn hãy vào mục "Menu" trên trang web.
+` + getSuggestions();
+    }
+  },
+
+  // =====================================================
+  // 3️⃣ HƯỚNG DẪN ĐẶT HÀNG
   // =====================================================
   {
     name: "Hướng dẫn đặt hàng",
@@ -294,7 +234,7 @@ LƯU Ý
   },
 
   // =====================================================
-  // 5️⃣ CÁCH KIỂM TRA ĐƠN HÀNG
+  // 4️⃣ CÁCH KIỂM TRA ĐƠN HÀNG
   // =====================================================
   {
     name: "Cách kiểm tra đơn hàng",
@@ -352,7 +292,7 @@ Cảm ơn bạn đã sử dụng Secret Pizza ❤️
   },
 
   // =====================================================
-  // 6️⃣ ĐÁNH GIÁ MÓN
+  // 5️⃣ ĐÁNH GIÁ MÓN
   // =====================================================
   {
     name: "Hướng dẫn đánh giá món",
@@ -437,7 +377,7 @@ Cảm ơn bạn đã chia sẻ trải nghiệm với Secret Pizza ❤️
   },
 
   // =====================================================
-  // 7️⃣ ĐÁNH GIÁ ĐƠN HÀNG
+  // 6️⃣ ĐÁNH GIÁ ĐƠN HÀNG
   // =====================================================
   {
     name: "Hướng dẫn đánh giá đơn hàng",
@@ -503,7 +443,7 @@ Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
   },
 
   // =====================================================
-  // 8️⃣ CHI NHÁNH / CỬA HÀNG
+  // 7️⃣ CHI NHÁNH / CỬA HÀNG
   // =====================================================
   {
     name: "Thông tin chi nhánh",
@@ -582,7 +522,7 @@ Cảm ơn bạn đã chọn Secret Pizza ❤️
   },
 
   // =====================================================
-  // 🤖 AI-POWERED RESPONSE (Groq)
+  // 8️⃣ AI-POWERED RESPONSE (Groq)
   // =====================================================
   {
     name: "AI Response - Groq",
