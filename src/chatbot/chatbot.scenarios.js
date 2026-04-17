@@ -133,9 +133,6 @@ Các loại bánh, kem, và món tráng miệng khác.
 🎁 COMBO
 Các combo tiết kiệm với các món được chọn lọc kỹ lưỡng.
 
-🎉 QUÀ TẶNG
-Các gói quà tặng đặc biệt cho dịp lễ hội.
-
 Bạn có thể:
 • Xem chi tiết từng sản phẩm
 • Xem giá cả
