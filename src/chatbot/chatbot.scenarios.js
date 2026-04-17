@@ -9,12 +9,11 @@ function getSuggestions() {
   return `
 GỢI Ý:
 1. Xem món bán chạy
-2. Xem thực đơn
-3. Hướng dẫn đặt hàng
-4. Cách kiểm tra đơn hàng
-5. Hướng dẫn đánh giá món
-6. Hướng dẫn đánh giá đơn hàng
-7. Thông tin chi nhánh
+2. Hướng dẫn đặt hàng
+3. Cách kiểm tra đơn hàng
+4. Hướng dẫn đánh giá món
+5. Hướng dẫn đánh giá đơn hàng
+6. Thông tin chi nhánh
 `;
 }
 
@@ -98,53 +97,7 @@ Loại: ${category}
   },
 
   // =====================================================
-  // 2️⃣ XEM THỰC ĐƠN / CÁC LOẠI MÓN
-  // =====================================================
-  {
-    name: "Xem thực đơn",
-    patterns: [
-      /thực đơn/i,
-      /thuc don/i,
-      /menu/i,
-      /danh sách món/i,
-      /danh sach mon/i,
-      /các loại món/i,
-      /cac loai mon/i,
-      /xem menu/i,
-      /có những gì/i,
-      /co nhung gi/i
-    ],
-
-    response: async () => {
-      return `
-THỰC ĐƠN SECRET PIZZA
-
-Chúng tôi phục vụ các loại sản phẩm:
-
-🍕 PIZZA
-Các loại pizza với nhiều topping khác nhau. Bạn có thể chọn kích thước và loại đế bánh yêu thích.
-
-🥤 NƯỚC UỐNG
-Các loại nước giải khát, sinh tố, nước ép trái cây tươi.
-
-🍰 TRÁNG MIỆNG
-Các loại bánh, kem, và món tráng miệng khác.
-
-🎁 COMBO
-Các combo tiết kiệm với các món được chọn lọc kỹ lưỡng.
-
-Bạn có thể:
-• Xem chi tiết từng sản phẩm
-• Xem giá cả
-• Xem đánh giá từ khách hàng khác
-
-Để xem chi tiết, bạn hãy vào mục "Menu" trên trang web.
-` + getSuggestions();
-    }
-  },
-
-  // =====================================================
-  // 3️⃣ HƯỚNG DẪN ĐẶT HÀNG
+  // 2️⃣ HƯỚNG DẪN ĐẶT HÀNG
   // =====================================================
   {
     name: "Hướng dẫn đặt hàng",
@@ -231,7 +184,7 @@ LƯU Ý
   },
 
   // =====================================================
-  // 4️⃣ CÁCH KIỂM TRA ĐƠN HÀNG
+  // 3️⃣ CÁCH KIỂM TRA ĐƠN HÀNG
   // =====================================================
   {
     name: "Cách kiểm tra đơn hàng",
@@ -289,7 +242,7 @@ Cảm ơn bạn đã sử dụng Secret Pizza ❤️
   },
 
   // =====================================================
-  // 5️⃣ ĐÁNH GIÁ MÓN
+  // 4️⃣ ĐÁNH GIÁ MÓN
   // =====================================================
   {
     name: "Hướng dẫn đánh giá món",
@@ -374,7 +327,7 @@ Cảm ơn bạn đã chia sẻ trải nghiệm với Secret Pizza ❤️
   },
 
   // =====================================================
-  // 6️⃣ ĐÁNH GIÁ ĐƠN HÀNG
+  // 5️⃣ ĐÁNH GIÁ ĐƠN HÀNG
   // =====================================================
   {
     name: "Hướng dẫn đánh giá đơn hàng",
@@ -440,7 +393,7 @@ Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
   },
 
   // =====================================================
-  // 7️⃣ CHI NHÁNH / CỬA HÀNG
+  // 6️⃣ CHI NHÁNH / CỬA HÀNG
   // =====================================================
   {
     name: "Thông tin chi nhánh",
@@ -519,7 +472,7 @@ Cảm ơn bạn đã chọn Secret Pizza ❤️
   },
 
   // =====================================================
-  // 8️⃣ AI-POWERED RESPONSE (Groq)
+  // 7️⃣ AI-POWERED RESPONSE (Groq)
   // =====================================================
   {
     name: "AI Response - Groq",
