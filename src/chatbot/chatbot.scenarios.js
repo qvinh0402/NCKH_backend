@@ -13,7 +13,8 @@ GỢI Ý:
 3. Cách kiểm tra đơn hàng
 4. Hướng dẫn đánh giá món
 5. Hướng dẫn đánh giá đơn hàng
-6. Thông tin chi nhánh
+6. Gợi ý món theo tính cách
+7. Thông tin chi nhánh
 `;
 }
 
@@ -393,7 +394,7 @@ Cảm ơn bạn đã giúp Secret Pizza cải thiện dịch vụ ❤️
   },
 
   // =====================================================
-  // 6️⃣ CHI NHÁNH / CỬA HÀNG
+  // 7️⃣ CHI NHÁNH / CỬA HÀNG
   // =====================================================
   {
     name: "Thông tin chi nhánh",
@@ -472,7 +473,153 @@ Cảm ơn bạn đã chọn Secret Pizza ❤️
   },
 
   // =====================================================
-  // 7️⃣ AI-POWERED RESPONSE (Groq)
+  // 7️⃣ GỢI Ý MÓN ĂN DỰA TRÊN TÍNH CÁCH
+  // =====================================================
+  {
+    name: "Gợi ý món ăn theo tính cách",
+    patterns: [
+      /tính cách|personality/i,
+      /dựa trên tính cách/i,
+      /gợi ý món phù hợp/i,
+      /goi y mon phu hop/i,
+      /nên ăn gì phù hợp/i,
+      /nen an gi phu hop/i,
+      /bạn có món nào cho người.*/i,
+      /ai thích ăn gì/i,
+      /ai thich an gi/i,
+      /người ngoài tính trực|người nội tính/i
+    ],
+
+    response: async (message) => {
+      try {
+        // Danh sách mapping tính cách → loại bánh, kích thước, topping
+        const personalityRecommendations = {
+          // Tính cách hoạt bát, năng động
+          energetic: {
+            crusts: ['Crust Thường', 'Crust Siêu dày'],
+            sizes: ['Size Lớn', 'Size Siêu lớn'],
+            keywords: ['hoạt bát', 'năng động', 'năng lượng', 'mạnh mẽ', 'mạnh mẽ', 'hoat bat', 'nang dong']
+          },
+          // Tính cách dịu dàng, nhẹ nhàng
+          gentle: {
+            crusts: ['Crust Mỏng', 'Crust Siêu mỏng'],
+            sizes: ['Size Nhỏ', 'Size Vừa'],
+            keywords: ['dịu dàng', 'nhẹ nhàng', 'yên tĩnh', 'thanh tao', 'diu dang', 'nhe nang', 'yen tinh', 'thanh tao']
+          },
+          // Tính cách cá tính, độc lập
+          bold: {
+            crusts: ['Crust Thường'],
+            sizes: ['Size Vừa', 'Size Lớn'],
+            keywords: ['cá tính', 'độc lập', 'mạnh', 'tự tin', 'ca tinh', 'doc lap', 'tu tin']
+          },
+          // Tính cách xã hội, vui vẻ
+          social: {
+            crusts: ['Crust Thường', 'Crust Dày'],
+            sizes: ['Size Lớn', 'Size Siêu lớn'],
+            keywords: ['xã hội', 'vui vẻ', 'hòa đồng', 'ngoài tính', 'xa hoi', 'vui ve', 'hoa dong', 'ngoai tinh']
+          }
+        };
+
+        // Phát hiện tính cách từ message
+        let detectedPersonality = null;
+        for (const [personality, data] of Object.entries(personalityRecommendations)) {
+          if (data.keywords.some(keyword => message.toLowerCase().includes(keyword))) {
+            detectedPersonality = personality;
+            break;
+          }
+        }
+
+        if (!detectedPersonality) {
+          return `Tôi chưa rõ tính cách của bạn. Bạn có thể mô tả thêm xem bạn là người:
+• Hoạt bát, năng động
+• Dịu dàng, nhẹ nhàng
+• Cá tính, độc lập
+• Xã hội, vui vẻ
+
+Sau đó tôi sẽ gợi ý món pizza phù hợp nhất cho bạn!` + getSuggestions();
+        }
+
+        // Lấy danh sách các món pizza có sẵn
+        const pizzas = await prisma.bienTheMonAn.findMany({
+          where: {
+            TrangThai: "Active",
+            MonAn: {
+              MaLoaiMonAn: 1 // Pizza only
+            }
+          },
+          include: {
+            MonAn: {
+              select: {
+                TenMonAn: true,
+                MonAn_DanhMuc: {
+                  select: {
+                    DanhMuc: {
+                      select: { TenDanhMuc: true }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          take: 10
+        });
+
+        if (!pizzas || pizzas.length === 0) {
+          return "Xin lỗi, hiện chưa có dữ liệu pizza nào trong hệ thống." + getSuggestions();
+        }
+
+        // Chọn ngẫu nhiên 2-3 món pizza để gợi ý
+        const recommendCount = Math.min(3, pizzas.length);
+        const selectedPizzas = [];
+        const indices = new Set();
+        
+        while (selectedPizzas.length < recommendCount) {
+          const randomIndex = Math.floor(Math.random() * pizzas.length);
+          if (!indices.has(randomIndex)) {
+            indices.add(randomIndex);
+            selectedPizzas.push(pizzas[randomIndex]);
+          }
+        }
+
+        // Xây dựng response
+        let response = `
+🎯 GỢI Ý MÓN PIZZA CHO BẠN
+
+Dựa trên tính cách **${detectedPersonality === 'energetic' ? 'hoạt bát, năng động' : 
+                              detectedPersonality === 'gentle' ? 'dịu dàng, nhẹ nhàng' :
+                              detectedPersonality === 'bold' ? 'cá tính, độc lập' :
+                              'xã hội, vui vẻ'}** của bạn, tôi gợi ý những món pizza này:
+
+`;
+
+        selectedPizzas.forEach((pizza, index) => {
+          const category = pizza.MonAn.MonAn_DanhMuc[0]?.DanhMuc?.TenDanhMuc || "Khác";
+          response += `
+${index + 1}. **${pizza.MonAn.TenMonAn}**
+   📂 Loại: ${category}
+   💰 Giá: ${formatPrice(pizza.GiaBan)}
+   ⭐ Rating: ${pizza.Rating || 'Chưa có đánh giá'}
+
+`;
+        });
+
+        response += `
+💡 Các món này được chọn vì phù hợp với tính cách và sở thích của bạn!
+
+Bạn có thể bấm vào tên món để xem chi tiết hoặc thêm vào giỏ hàng.
+`;
+
+        return response + getSuggestions();
+
+      } catch (error) {
+        console.error('[Chatbot] Personality recommendation error:', error);
+        return `Xin lỗi, có lỗi khi gợi ý món ăn. Vui lòng thử lại sau.` + getSuggestions();
+      }
+    }
+  },
+
+  // =====================================================
+  // 9️⃣ AI-POWERED RESPONSE (Groq)
   // =====================================================
   {
     name: "AI Response - Groq",
